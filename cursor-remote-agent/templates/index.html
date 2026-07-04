@@ -635,6 +635,240 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
+        /* Header actions */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .header-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .header-btn:active {
+            transform: scale(0.95);
+            background: var(--border);
+        }
+
+        /* Agent chat */
+        .agent-composer {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .agent-textarea {
+            width: 100%;
+            min-height: 120px;
+            max-height: 240px;
+            padding: 14px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 16px;
+            line-height: 1.45;
+            resize: vertical;
+            outline: none;
+        }
+
+        .agent-textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .agent-textarea::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .agent-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .agent-mode-select {
+            flex: 1;
+            min-width: 110px;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .agent-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            min-height: 42px;
+        }
+
+        .agent-btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+            flex: 1;
+        }
+
+        .agent-btn.mic {
+            width: 48px;
+            padding: 10px;
+            font-size: 20px;
+        }
+
+        .agent-btn.mic.listening {
+            background: var(--danger);
+            border-color: var(--danger);
+            color: #fff;
+            animation: pulse 1s infinite;
+        }
+
+        .agent-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .agent-hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .agent-output {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            min-height: 160px;
+            max-height: 360px;
+            overflow-y: auto;
+            font-family: 'Menlo', 'SF Mono', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--text-secondary);
+        }
+
+        .agent-output.has-content {
+            color: var(--text-primary);
+        }
+
+        .agent-status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .agent-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+        }
+
+        .agent-status-pill.running {
+            color: var(--success);
+            border-color: rgba(63, 185, 80, 0.4);
+        }
+
+        .agent-status-pill.error {
+            color: var(--danger);
+            border-color: rgba(248, 81, 73, 0.4);
+        }
+
+        .agent-status-pill.done {
+            color: var(--accent);
+            border-color: rgba(88, 166, 255, 0.4);
+        }
+
+        .prompt-history-item {
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .prompt-history-item:active {
+            border-color: var(--accent);
+        }
+
+        .prompt-history-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .prompt-history-text {
+            font-size: 13px;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .settings-field {
+            margin-bottom: 14px;
+        }
+
+        .settings-field label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .settings-field input {
+            width: 100%;
+            padding: 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 15px;
+            outline: none;
+        }
+
+        .settings-field input:focus {
+            border-color: var(--accent);
+        }
     </style>
 </head>
 <body>
@@ -644,16 +878,83 @@
             <div class="header-icon">⌘</div>
             <h1>Cursor Remote</h1>
         </div>
-        <div class="status-indicator">
-            <div class="status-dot"></div>
-            <span>Connected</span>
+        <div class="header-actions">
+            <button class="header-btn" onclick="openInNewTab()" title="Open in new tab" aria-label="Open in new tab">⧉</button>
+            <button class="header-btn" onclick="launchAppInNewTab()" title="Launch app" aria-label="Launch app">🚀</button>
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span>Connected</span>
+            </div>
         </div>
     </header>
     
     <!-- Main Content -->
     <main class="main-content">
+        <!-- Agent Tab -->
+        <div id="tab-agent" class="tabs active">
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">✨</span>
+                        Cursor Agent
+                    </div>
+                </div>
+                <div class="agent-composer">
+                    <textarea
+                        id="agent-prompt"
+                        class="agent-textarea"
+                        placeholder="Describe what you want Cursor to build or change in the stocks project… e.g. Add a portfolio summary card to the dashboard"
+                        rows="5"
+                    ></textarea>
+                    <div class="agent-controls">
+                        <select id="agent-mode" class="agent-mode-select" aria-label="Agent mode">
+                            <option value="agent">Agent (edit code)</option>
+                            <option value="plan">Plan (read-only)</option>
+                            <option value="ask">Ask (Q&amp;A)</option>
+                        </select>
+                        <button type="button" id="mic-btn" class="agent-btn mic" onclick="toggleVoiceInput()" title="Voice input" aria-label="Voice input">🎤</button>
+                        <button type="button" id="agent-send-btn" class="agent-btn primary" onclick="sendAgentPrompt()">Send to Cursor</button>
+                    </div>
+                    <p class="agent-hint" id="voice-hint">
+                        Type a request or tap the mic to speak. Cursor runs it on your Mac against the project workspace.
+                    </p>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">📤</span>
+                        Agent Output
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <button class="process-btn stop" id="agent-stop-btn" onclick="stopAgentRun()" style="display:none;">Stop</button>
+                        <button class="process-btn" onclick="clearAgentOutput()">Clear</button>
+                    </div>
+                </div>
+                <div class="agent-status-bar">
+                    <span class="agent-status-pill" id="agent-status-pill">Idle</span>
+                    <span id="agent-run-meta"></span>
+                </div>
+                <div class="agent-output" id="agent-output">Send a prompt to start. Output from Cursor agent will appear here.</div>
+            </section>
+
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">🕘</span>
+                        Recent Prompts
+                    </div>
+                    <button class="process-btn" onclick="loadAgentHistory()">Refresh</button>
+                </div>
+                <div id="agent-history">
+                    <p style="color: var(--text-secondary); font-size: 14px;">No prompts yet</p>
+                </div>
+            </section>
+        </div>
+
         <!-- Dashboard Tab -->
-        <div id="tab-dashboard" class="tabs active">
+        <div id="tab-dashboard" class="tabs">
             <!-- Quick Actions -->
             <section class="section">
                 <div class="section-header">
@@ -663,6 +964,18 @@
                     </div>
                 </div>
                 <div class="quick-actions">
+                    <button class="action-btn success" onclick="updateAndRestart()">
+                        <span class="action-icon">🔄</span>
+                        <span class="action-label">Update & Restart</span>
+                    </button>
+                    <button class="action-btn primary" onclick="showTab('agent')">
+                        <span class="action-icon">✨</span>
+                        <span class="action-label">Cursor Agent</span>
+                    </button>
+                    <button class="action-btn" onclick="launchAppInNewTab()">
+                        <span class="action-icon">🌐</span>
+                        <span class="action-label">Open App Tab</span>
+                    </button>
                     <button class="action-btn success" onclick="springBootStart()">
                         <span class="action-icon">🚀</span>
                         <span class="action-label">Start Spring Boot</span>
@@ -797,8 +1110,34 @@ Type commands below and press Enter or tap Send
                 <div style="padding: 10px 0;">
                     <div class="git-info">
                         <span>📍 Project Path:</span>
-                        <code style="color: var(--accent);">{{ project_path }}</code>
+                        <code style="color: var(--accent);" id="settings-project-path">{{ project_path }}</code>
                     </div>
+
+                    <div class="settings-field">
+                        <label for="settings-app-url">App URL (opens in a new mobile browser tab)</label>
+                        <input type="url" id="settings-app-url" placeholder="http://YOUR_MAC_IP:4200" value="{{ app_url }}">
+                    </div>
+                    <div class="settings-field">
+                        <label for="settings-workspace">Cursor workspace path</label>
+                        <input type="text" id="settings-workspace" placeholder="/Users/you/IdeaProjects/stocks-app" value="{{ project_path }}">
+                    </div>
+
+                    <button class="action-btn primary" style="width: 100%; margin-bottom: 12px;" onclick="saveSettings()">
+                        <span class="action-icon">💾</span>
+                        <span class="action-label">Save Settings</span>
+                    </button>
+                    <button class="action-btn success" style="width: 100%; margin-bottom: 12px;" onclick="updateAndRestart()">
+                        <span class="action-icon">🔄</span>
+                        <span class="action-label">Update Deps & Restart App</span>
+                    </button>
+                    <button class="action-btn" style="width: 100%; margin-bottom: 12px;" onclick="openInNewTab()">
+                        <span class="action-icon">⧉</span>
+                        <span class="action-label">Open Remote Agent in New Tab</span>
+                    </button>
+                    <button class="action-btn" style="width: 100%; margin-bottom: 12px;" onclick="launchAppInNewTab()">
+                        <span class="action-icon">🚀</span>
+                        <span class="action-label">Launch App in New Tab</span>
+                    </button>
                     <button class="action-btn" style="width: 100%; margin-bottom: 12px;" onclick="showLogs()">
                         <span class="action-icon">📋</span>
                         <span class="action-label">View Server Logs</span>
@@ -814,19 +1153,23 @@ Type commands below and press Enter or tap Send
     
     <!-- Bottom Navigation -->
     <nav class="bottom-nav">
-        <button class="nav-item active" onclick="showTab('dashboard')">
-            <span class="nav-icon">🏠</span>
-            <span class="nav-label">Dashboard</span>
+        <button class="nav-item active" data-tab="agent" onclick="showTab('agent')">
+            <span class="nav-icon">✨</span>
+            <span class="nav-label">Agent</span>
         </button>
-        <button class="nav-item" onclick="showTab('terminal')">
+        <button class="nav-item" data-tab="dashboard" onclick="showTab('dashboard')">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">Home</span>
+        </button>
+        <button class="nav-item" data-tab="terminal" onclick="showTab('terminal')">
             <span class="nav-icon">💻</span>
             <span class="nav-label">Terminal</span>
         </button>
-        <button class="nav-item" onclick="showTab('files')">
+        <button class="nav-item" data-tab="files" onclick="showTab('files')">
             <span class="nav-icon">📁</span>
             <span class="nav-label">Files</span>
         </button>
-        <button class="nav-item" onclick="showTab('settings')">
+        <button class="nav-item" data-tab="settings" onclick="showTab('settings')">
             <span class="nav-icon">⚙️</span>
             <span class="nav-label">Settings</span>
         </button>
@@ -872,18 +1215,130 @@ Type commands below and press Enter or tap Send
     <script>
         // State
         let currentPath = '{{ project_path }}';
+        let appUrl = localStorage.getItem('appUrl') || '{{ app_url }}' || '';
         let editingFile = null;
         let commandHistory = [];
-        
+        let activeRunId = null;
+        let agentPollTimer = null;
+        let recognition = null;
+        let isListening = false;
+        let voiceBaseText = '';
+
+        // Prefill settings fields from localStorage
+        (function initSettingsFields() {
+            const appInput = document.getElementById('settings-app-url');
+            const wsInput = document.getElementById('settings-workspace');
+            if (appInput && appUrl) appInput.value = appUrl;
+            const savedWs = localStorage.getItem('workspacePath');
+            if (wsInput && savedWs) {
+                wsInput.value = savedWs;
+                currentPath = savedWs;
+            }
+        })();
+
         // Tab Navigation
         function showTab(name) {
             document.querySelectorAll('.tabs').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            document.getElementById('tab-' + name).classList.add('active');
-            event.currentTarget.classList.add('active');
-            
+            const tab = document.getElementById('tab-' + name);
+            if (tab) tab.classList.add('active');
+            const nav = document.querySelector(`.nav-item[data-tab="${name}"]`);
+            if (nav) nav.classList.add('active');
+
             if (name === 'files') {
                 loadFiles(currentPath);
+            }
+            if (name === 'agent') {
+                loadAgentHistory();
+            }
+        }
+
+        function openInNewTab() {
+            const opened = window.open(window.location.href, '_blank');
+            if (!opened) {
+                showToast('Allow pop-ups to open a new tab', 'error');
+                return;
+            }
+            showToast('Opened in a new tab', 'success');
+        }
+
+        function launchAppInNewTab() {
+            const url = (document.getElementById('settings-app-url')?.value || appUrl || '').trim();
+            if (!url) {
+                showToast('Set App URL in Settings first', 'error');
+                showTab('settings');
+                return;
+            }
+            const opened = window.open(url, '_blank');
+            if (!opened) {
+                showToast('Allow pop-ups to open the app', 'error');
+                return;
+            }
+            showToast('App opened in a new tab', 'success');
+        }
+
+        async function saveSettings() {
+            const newAppUrl = (document.getElementById('settings-app-url').value || '').trim();
+            const newWorkspace = (document.getElementById('settings-workspace').value || '').trim();
+
+            appUrl = newAppUrl;
+            localStorage.setItem('appUrl', appUrl);
+            if (newWorkspace) {
+                currentPath = newWorkspace;
+                localStorage.setItem('workspacePath', newWorkspace);
+            }
+
+            const result = await api('/settings', {
+                method: 'POST',
+                body: JSON.stringify({
+                    app_url: appUrl,
+                    project_path: newWorkspace || currentPath,
+                }),
+            });
+
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+
+            document.getElementById('settings-project-path').textContent = result.project_path;
+            showToast('Settings saved', 'success');
+        }
+
+        async function updateAndRestart() {
+            if (!confirm('Install dependencies and restart the remote agent? The app will disconnect for a few seconds.')) {
+                return;
+            }
+            showToast('Updating & restarting…', 'info');
+            try {
+                const result = await api('/self/update-and-restart', { method: 'POST' });
+                if (result.error) {
+                    showToast(result.error, 'error');
+                    return;
+                }
+                showToast('Restarting — refresh in a few seconds', 'success');
+                // Poll until the server is back, then reload
+                let attempts = 0;
+                const waitForServer = setInterval(async () => {
+                    attempts += 1;
+                    try {
+                        const res = await fetch('/api/status', { credentials: 'same-origin' });
+                        if (res.ok) {
+                            clearInterval(waitForServer);
+                            window.location.reload();
+                        }
+                    } catch (e) {
+                        // still down
+                    }
+                    if (attempts > 30) {
+                        clearInterval(waitForServer);
+                        showToast('Still restarting — pull to refresh', 'info');
+                    }
+                }, 2000);
+            } catch (e) {
+                // Connection drop is expected once the old process is killed
+                showToast('Restarting — refresh in a few seconds', 'success');
+                setTimeout(() => window.location.reload(), 4000);
             }
         }
         
@@ -1158,7 +1613,267 @@ Type commands below and press Enter or tap Send
             });
             showToast(result.success ? 'Opened in Cursor' : result.error, result.success ? 'success' : 'error');
         }
-        
+
+        // Agent prompt → Cursor on Mac
+        function setAgentStatus(text, state) {
+            const pill = document.getElementById('agent-status-pill');
+            pill.textContent = text;
+            pill.className = 'agent-status-pill' + (state ? ' ' + state : '');
+        }
+
+        function clearAgentOutput() {
+            const output = document.getElementById('agent-output');
+            output.textContent = 'Send a prompt to start. Output from Cursor agent will appear here.';
+            output.classList.remove('has-content');
+            document.getElementById('agent-run-meta').textContent = '';
+            setAgentStatus('Idle');
+        }
+
+        function escapeHtml(text) {
+            return String(text)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        async function sendAgentPrompt(source) {
+            const textarea = document.getElementById('agent-prompt');
+            const prompt = (textarea.value || '').trim();
+            if (!prompt) {
+                showToast('Enter a prompt first', 'error');
+                return;
+            }
+            if (activeRunId) {
+                showToast('An agent run is already in progress', 'error');
+                return;
+            }
+
+            const mode = document.getElementById('agent-mode').value;
+            const sendBtn = document.getElementById('agent-send-btn');
+            sendBtn.disabled = true;
+            setAgentStatus('Starting…', 'running');
+            document.getElementById('agent-stop-btn').style.display = 'inline-flex';
+
+            const output = document.getElementById('agent-output');
+            output.textContent = 'Sending prompt to Cursor agent on your Mac…\n';
+            output.classList.add('has-content');
+
+            try {
+                const payload = {
+                    prompt,
+                    workspace: currentPath,
+                    force: true,
+                    open_ide: true,
+                    inject_ide: false,
+                    source: source || 'text',
+                };
+                if (mode !== 'agent') {
+                    payload.mode = mode;
+                }
+
+                const result = await api('/cursor/agent', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                });
+
+                if (result.error) {
+                    setAgentStatus('Failed', 'error');
+                    output.textContent = 'Error: ' + result.error;
+                    document.getElementById('agent-stop-btn').style.display = 'none';
+                    showToast(result.error, 'error');
+                    return;
+                }
+
+                activeRunId = result.run_id;
+                document.getElementById('agent-run-meta').textContent = result.run_id.slice(0, 8);
+                setAgentStatus('Running on Mac', 'running');
+                showToast('Prompt sent to Cursor', 'success');
+                loadAgentHistory();
+                pollAgentRun(activeRunId);
+            } catch (e) {
+                setAgentStatus('Failed', 'error');
+                document.getElementById('agent-stop-btn').style.display = 'none';
+            } finally {
+                sendBtn.disabled = false;
+            }
+        }
+
+        async function pollAgentRun(runId) {
+            if (agentPollTimer) {
+                clearInterval(agentPollTimer);
+            }
+
+            const poll = async () => {
+                try {
+                    const result = await api('/cursor/agent/' + runId);
+                    if (result.error) {
+                        setAgentStatus('Error', 'error');
+                        clearInterval(agentPollTimer);
+                        agentPollTimer = null;
+                        activeRunId = null;
+                        document.getElementById('agent-stop-btn').style.display = 'none';
+                        return;
+                    }
+
+                    const output = document.getElementById('agent-output');
+                    output.textContent = result.output || 'Cursor agent is working…';
+                    output.classList.add('has-content');
+                    output.scrollTop = output.scrollHeight;
+
+                    if (!result.running) {
+                        clearInterval(agentPollTimer);
+                        agentPollTimer = null;
+                        activeRunId = null;
+                        document.getElementById('agent-stop-btn').style.display = 'none';
+                        const ok = result.return_code === 0;
+                        setAgentStatus(ok ? 'Done' : 'Finished with errors', ok ? 'done' : 'error');
+                        showToast(ok ? 'Cursor agent finished' : 'Agent finished with errors', ok ? 'success' : 'error');
+                    }
+                } catch (e) {
+                    // keep polling on transient network blips
+                }
+            };
+
+            await poll();
+            agentPollTimer = setInterval(poll, 2000);
+        }
+
+        async function stopAgentRun() {
+            if (!activeRunId) return;
+            await api('/cursor/agent/' + activeRunId + '/stop', { method: 'POST' });
+            if (agentPollTimer) {
+                clearInterval(agentPollTimer);
+                agentPollTimer = null;
+            }
+            activeRunId = null;
+            document.getElementById('agent-stop-btn').style.display = 'none';
+            setAgentStatus('Stopped', 'error');
+            showToast('Agent stopped', 'info');
+        }
+
+        async function loadAgentHistory() {
+            const result = await api('/cursor/agent/history');
+            const container = document.getElementById('agent-history');
+            if (!result.history || result.history.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); font-size: 14px;">No prompts yet</p>';
+                return;
+            }
+
+            container.innerHTML = '';
+            result.history.forEach(item => {
+                const when = (item.started || '').replace('T', ' ').slice(0, 19);
+                const source = item.source === 'voice' ? '🎤' : '⌨️';
+                const mode = item.mode || 'agent';
+                const el = document.createElement('div');
+                el.className = 'prompt-history-item';
+                el.innerHTML = `
+                    <div class="prompt-history-meta">
+                        <span>${source} ${escapeHtml(mode)}</span>
+                        <span>${escapeHtml(when)}</span>
+                    </div>
+                    <div class="prompt-history-text">${escapeHtml(item.prompt)}</div>
+                `;
+                el.addEventListener('click', () => reusePrompt(item.prompt));
+                container.appendChild(el);
+            });
+        }
+
+        function reusePrompt(prompt) {
+            document.getElementById('agent-prompt').value = prompt;
+            showTab('agent');
+            document.getElementById('agent-prompt').focus();
+        }
+
+        // Voice input (Web Speech API — works in Safari / Chrome on mobile)
+        function getSpeechRecognition() {
+            return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+        }
+
+        function toggleVoiceInput() {
+            const SpeechRecognition = getSpeechRecognition();
+            if (!SpeechRecognition) {
+                showToast('Voice input not supported in this browser. Use Safari or Chrome.', 'error');
+                return;
+            }
+
+            if (isListening) {
+                stopVoiceInput();
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.lang = navigator.language || 'en-US';
+            recognition.interimResults = true;
+            recognition.continuous = true;
+
+            const textarea = document.getElementById('agent-prompt');
+            voiceBaseText = (textarea.value || '').trim();
+            const micBtn = document.getElementById('mic-btn');
+            const hint = document.getElementById('voice-hint');
+
+            recognition.onstart = () => {
+                isListening = true;
+                micBtn.classList.add('listening');
+                micBtn.textContent = '⏹';
+                hint.textContent = 'Listening… speak your request, then tap the mic again to stop.';
+                showToast('Listening…', 'info');
+            };
+
+            recognition.onresult = (event) => {
+                let interim = '';
+                let finalText = '';
+                for (let i = 0; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalText += transcript + ' ';
+                    } else {
+                        interim += transcript;
+                    }
+                }
+                const combined = [voiceBaseText, finalText, interim].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+                textarea.value = combined;
+            };
+
+            recognition.onerror = (event) => {
+                if (event.error !== 'aborted') {
+                    showToast('Voice error: ' + event.error, 'error');
+                }
+                stopVoiceInput(false);
+            };
+
+            recognition.onend = () => {
+                if (isListening) {
+                    // Some mobile browsers end sessions early; restart while still active
+                    try { recognition.start(); } catch (e) { stopVoiceInput(false); }
+                }
+            };
+
+            try {
+                recognition.start();
+            } catch (e) {
+                showToast('Could not start microphone', 'error');
+                stopVoiceInput(false);
+            }
+        }
+
+        function stopVoiceInput(announce) {
+            isListening = false;
+            const micBtn = document.getElementById('mic-btn');
+            const hint = document.getElementById('voice-hint');
+            micBtn.classList.remove('listening');
+            micBtn.textContent = '🎤';
+            hint.textContent = 'Type a request or tap the mic to speak. Cursor runs it on your Mac against the project workspace.';
+            if (recognition) {
+                try { recognition.stop(); } catch (e) {}
+                recognition = null;
+            }
+            if (announce !== false) {
+                const text = (document.getElementById('agent-prompt').value || '').trim();
+                showToast(text ? 'Voice captured' : 'No speech captured', text ? 'success' : 'info');
+            }
+        }
+
         // Git
         async function gitStatus() {
             const result = await api('/git/status?path=' + encodeURIComponent(currentPath));
@@ -1185,10 +1900,19 @@ Type commands below and press Enter or tap Send
             });
             showTab('terminal');
         }
+
+        // Keyboard: Cmd/Ctrl+Enter sends agent prompt
+        document.getElementById('agent-prompt').addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                sendAgentPrompt('text');
+            }
+        });
         
         // Initialize
         refreshSpringStatus();
         refreshProcessList();
+        loadAgentHistory();
         setInterval(refreshProcessList, 10000);
         setInterval(refreshSpringStatus, 15000);
     </script>
