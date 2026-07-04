@@ -98,16 +98,57 @@ Common commands:
 
 ## Environment Variables
 
-You can also configure the server using environment variables:
+You can configure the server using environment variables:
 
 ```bash
 export PROJECT_PATH=/path/to/project
 export AGENT_PASSWORD=mysecurepassword
 export AGENT_PORT=8765
 export AGENT_HOST=0.0.0.0
+export CURSOR_API_KEY=your_cursor_api_key_here  # Required for Cursor CLI commands
 
 python3 server.py
 ```
+
+### Cursor API Key (Important!)
+
+If you plan to use Cursor CLI commands (like `agent`) from the mobile terminal, you **must** configure the Cursor API key. Without it, you'll see:
+
+```
+Error: Authentication required. Please run 'agent login' first, or set CURSOR_API_KEY environment variable.
+```
+
+**Option 1: Use `agent login` on your Mac first**
+
+Run this in your Mac's terminal before starting the server:
+```bash
+agent login
+```
+
+This stores credentials locally, and subprocesses will inherit them.
+
+**Option 2: Set CURSOR_API_KEY environment variable**
+
+1. Get your API key from the [Cursor Dashboard](https://cursor.com) → Integrations → User API Keys
+2. Set it when starting the server:
+```bash
+export CURSOR_API_KEY=your_api_key_here
+./start.sh
+```
+
+Or pass it directly:
+```bash
+python3 server.py --cursor-api-key your_api_key_here
+```
+
+**Option 3: Add to your shell profile**
+
+Add to `~/.zshrc` or `~/.bash_profile`:
+```bash
+export CURSOR_API_KEY=your_api_key_here
+```
+
+Then source the file or restart your terminal.
 
 ## Running as a Background Service
 
@@ -137,6 +178,11 @@ Create `~/Library/LaunchAgents/com.cursor.remote-agent.plist`:
         <string>--password</string>
         <string>your-password</string>
     </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>CURSOR_API_KEY</key>
+        <string>your_cursor_api_key_here</string>
+    </dict>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
@@ -147,6 +193,12 @@ Create `~/Library/LaunchAgents/com.cursor.remote-agent.plist`:
 
 Load it:
 ```bash
+launchctl load ~/Library/LaunchAgents/com.cursor.remote-agent.plist
+```
+
+**Note:** If you update the CURSOR_API_KEY, you need to unload and reload the agent:
+```bash
+launchctl unload ~/Library/LaunchAgents/com.cursor.remote-agent.plist
 launchctl load ~/Library/LaunchAgents/com.cursor.remote-agent.plist
 ```
 
@@ -168,6 +220,30 @@ For secure connections, you can use a reverse proxy like nginx or run with SSL d
 1. Ensure both devices are on the same WiFi network
 2. Check if your Mac's firewall is blocking the port
 3. Verify the server is running: `lsof -i :8765`
+
+### "Authentication required. Please run 'agent login' first, or set CURSOR_API_KEY"
+
+This error occurs when you run Cursor CLI commands (like `agent`) from the mobile terminal, but the server doesn't have access to Cursor credentials.
+
+**Solutions:**
+
+1. **Set CURSOR_API_KEY when starting the server:**
+   ```bash
+   export CURSOR_API_KEY=your_api_key_here
+   ./start.sh
+   ```
+
+2. **Or run `agent login` on your Mac first** (in the same environment where the server runs)
+
+3. **If using launchd:** Add `CURSOR_API_KEY` to the EnvironmentVariables section of your plist
+
+4. **If using nohup:** Export the variable before running:
+   ```bash
+   export CURSOR_API_KEY=your_api_key_here
+   nohup python3 server.py --project /path/to/project > agent.log 2>&1 &
+   ```
+
+**Get your API key:** Go to [Cursor Dashboard](https://cursor.com) → Settings → Integrations → User API Keys
 
 ### Spring Boot won't start
 
