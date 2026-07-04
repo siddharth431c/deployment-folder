@@ -1,0 +1,1196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Cursor Remote Agent</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --accent: #58a6ff;
+            --accent-hover: #79b8ff;
+            --danger: #f85149;
+            --success: #3fb950;
+            --warning: #d29922;
+            --border: #30363d;
+            --purple: #a855f7;
+            --green: #22c55e;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+        
+        /* Header */
+        .header {
+            background: var(--bg-secondary);
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--accent), var(--purple));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 16px;
+        }
+        
+        /* Section Cards */
+        .section {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+        
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .section-icon {
+            font-size: 20px;
+        }
+        
+        /* Quick Actions */
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+        
+        .action-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            gap: 8px;
+        }
+        
+        .action-btn:hover, .action-btn:active {
+            background: var(--border);
+            transform: scale(0.98);
+        }
+        
+        .action-btn.primary {
+            background: var(--accent);
+            border-color: var(--accent);
+        }
+        
+        .action-btn.success {
+            background: var(--success);
+            border-color: var(--success);
+        }
+        
+        .action-btn.danger {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+        
+        .action-icon {
+            font-size: 28px;
+        }
+        
+        .action-label {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        /* Terminal */
+        .terminal-container {
+            background: var(--bg-primary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        
+        .terminal-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 14px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .terminal-dots {
+            display: flex;
+            gap: 6px;
+        }
+        
+        .terminal-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .terminal-dot.red { background: #ff5f57; }
+        .terminal-dot.yellow { background: #febc2e; }
+        .terminal-dot.green { background: #28c840; }
+        
+        .terminal-output {
+            padding: 14px;
+            font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: var(--text-secondary);
+        }
+        
+        .terminal-input-container {
+            display: flex;
+            align-items: center;
+            padding: 12px 14px;
+            background: var(--bg-tertiary);
+            border-top: 1px solid var(--border);
+            gap: 10px;
+        }
+        
+        .terminal-prompt {
+            color: var(--success);
+            font-family: monospace;
+            font-weight: bold;
+        }
+        
+        .terminal-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: monospace;
+            font-size: 14px;
+            outline: none;
+        }
+        
+        .terminal-send {
+            padding: 8px 16px;
+            background: var(--accent);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        /* File Browser */
+        .file-browser {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .file-path {
+            padding: 12px 14px;
+            background: var(--bg-primary);
+            border-bottom: 1px solid var(--border);
+            font-family: monospace;
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .file-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background 0.2s;
+            gap: 12px;
+        }
+        
+        .file-item:hover, .file-item:active {
+            background: var(--bg-secondary);
+        }
+        
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .file-icon {
+            font-size: 20px;
+        }
+        
+        .file-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .file-name {
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .file-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        
+        /* Spring Boot Status */
+        .spring-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .spring-status-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--success);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .spring-status-icon.stopped {
+            background: var(--bg-primary);
+        }
+        
+        .spring-status-info h3 {
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+        
+        .spring-status-info p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        /* Process List */
+        .process-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .process-info {
+            flex: 1;
+        }
+        
+        .process-name {
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        
+        .process-status {
+            font-size: 12px;
+            color: var(--success);
+        }
+        
+        .process-status.stopped {
+            color: var(--text-secondary);
+        }
+        
+        .process-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .process-btn {
+            padding: 8px 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .process-btn.stop {
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+        
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .modal-overlay.active {
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding-top: 60px;
+        }
+        
+        .modal {
+            background: var(--bg-secondary);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 500px;
+            border: 1px solid var(--border);
+        }
+        
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            background: var(--bg-tertiary);
+            border: none;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 20px;
+            cursor: pointer;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .modal-footer {
+            padding: 16px 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        /* Editor */
+        .editor-container {
+            background: var(--bg-primary);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+        
+        .editor-textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 14px;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-family: 'Menlo', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: vertical;
+            outline: none;
+        }
+        
+        /* Bottom Navigation */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 10px 20px;
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+            display: flex;
+            justify-content: space-around;
+            z-index: 100;
+        }
+        
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 16px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 10px;
+            transition: all 0.2s;
+            cursor: pointer;
+            background: none;
+            border: none;
+        }
+        
+        .nav-item.active, .nav-item:active {
+            color: var(--accent);
+            background: rgba(88, 166, 255, 0.1);
+        }
+        
+        .nav-icon {
+            font-size: 22px;
+        }
+        
+        .nav-label {
+            font-size: 11px;
+            font-weight: 500;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: none;
+        }
+        
+        .tabs.active {
+            display: block;
+        }
+        
+        /* Git Status */
+        .git-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            margin-bottom: 16px;
+        }
+        
+        .git-branch {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: var(--bg-primary);
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: monospace;
+        }
+        
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-100px);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 300;
+            transition: transform 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .toast.success {
+            border-color: var(--success);
+            color: var(--success);
+        }
+        
+        .toast.error {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+        
+        /* Command History */
+        .history-item {
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        
+        .history-item:hover {
+            background: var(--border);
+        }
+        
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">
+            <div class="header-icon">⌘</div>
+            <h1>Cursor Remote</h1>
+        </div>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <span>Connected</span>
+        </div>
+    </header>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Dashboard Tab -->
+        <div id="tab-dashboard" class="tabs active">
+            <!-- Quick Actions -->
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">⚡</span>
+                        Quick Actions
+                    </div>
+                </div>
+                <div class="quick-actions">
+                    <button class="action-btn success" onclick="springBootStart()">
+                        <span class="action-icon">🚀</span>
+                        <span class="action-label">Start Spring Boot</span>
+                    </button>
+                    <button class="action-btn danger" onclick="springBootStop()">
+                        <span class="action-icon">⏹️</span>
+                        <span class="action-label">Stop Spring Boot</span>
+                    </button>
+                    <button class="action-btn primary" onclick="openCursor()">
+                        <span class="action-icon">📝</span>
+                        <span class="action-label">Open Cursor</span>
+                    </button>
+                    <button class="action-btn" onclick="gitStatus()">
+                        <span class="action-icon">📊</span>
+                        <span class="action-label">Git Status</span>
+                    </button>
+                </div>
+            </section>
+            
+            <!-- Spring Boot Status -->
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">🌱</span>
+                        Spring Boot Status
+                    </div>
+                    <button class="process-btn" onclick="refreshSpringStatus()">Refresh</button>
+                </div>
+                <div id="spring-status-container">
+                    <div class="spring-status">
+                        <div class="spring-status-icon stopped" id="spring-icon">🌱</div>
+                        <div class="spring-status-info">
+                            <h3 id="spring-status-text">Checking...</h3>
+                            <p id="spring-status-detail">Loading status</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Running Processes -->
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">⚙️</span>
+                        Running Processes
+                    </div>
+                </div>
+                <div id="process-list">
+                    <p style="color: var(--text-secondary); font-size: 14px;">No processes running</p>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Terminal Tab -->
+        <div id="tab-terminal" class="tabs">
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">💻</span>
+                        Terminal
+                    </div>
+                    <button class="process-btn" onclick="clearTerminal()">Clear</button>
+                </div>
+                <div class="terminal-container">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <div class="terminal-dot red"></div>
+                            <div class="terminal-dot yellow"></div>
+                            <div class="terminal-dot green"></div>
+                        </div>
+                        <span style="font-size: 12px; color: var(--text-secondary);">zsh</span>
+                    </div>
+                    <div class="terminal-output" id="terminal-output">Welcome to Cursor Remote Terminal
+Type commands below and press Enter or tap Send
+
+</div>
+                    <div class="terminal-input-container">
+                        <span class="terminal-prompt">$</span>
+                        <input type="text" class="terminal-input" id="terminal-input" 
+                               placeholder="Enter command..." autocomplete="off" autocapitalize="off">
+                        <button class="terminal-send" onclick="executeCommand()">Send</button>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Command History -->
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">📜</span>
+                        Recent Commands
+                    </div>
+                </div>
+                <div id="command-history">
+                    <p style="color: var(--text-secondary); font-size: 14px;">No command history yet</p>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Files Tab -->
+        <div id="tab-files" class="tabs">
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">📁</span>
+                        File Browser
+                    </div>
+                </div>
+                <div class="file-browser">
+                    <div class="file-path" id="current-path">
+                        <span>📍</span>
+                        <span id="path-display">{{ project_path }}</span>
+                    </div>
+                    <div class="file-list" id="file-list">
+                        <div class="loading">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Settings Tab -->
+        <div id="tab-settings" class="tabs">
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">⚙️</span>
+                        Settings
+                    </div>
+                </div>
+                <div style="padding: 10px 0;">
+                    <div class="git-info">
+                        <span>📍 Project Path:</span>
+                        <code style="color: var(--accent);">{{ project_path }}</code>
+                    </div>
+                    <button class="action-btn" style="width: 100%; margin-bottom: 12px;" onclick="showLogs()">
+                        <span class="action-icon">📋</span>
+                        <span class="action-label">View Server Logs</span>
+                    </button>
+                    <a href="/logout" class="action-btn danger" style="width: 100%; text-align: center;">
+                        <span class="action-icon">🚪</span>
+                        <span class="action-label">Logout</span>
+                    </a>
+                </div>
+            </section>
+        </div>
+    </main>
+    
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="showTab('dashboard')">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-item" onclick="showTab('terminal')">
+            <span class="nav-icon">💻</span>
+            <span class="nav-label">Terminal</span>
+        </button>
+        <button class="nav-item" onclick="showTab('files')">
+            <span class="nav-icon">📁</span>
+            <span class="nav-label">Files</span>
+        </button>
+        <button class="nav-item" onclick="showTab('settings')">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Settings</span>
+        </button>
+    </nav>
+    
+    <!-- File Editor Modal -->
+    <div class="modal-overlay" id="editor-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title" id="editor-title">Edit File</span>
+                <button class="modal-close" onclick="closeEditor()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="editor-container">
+                    <textarea class="editor-textarea" id="editor-content"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="process-btn" onclick="closeEditor()">Cancel</button>
+                <button class="terminal-send" onclick="saveFile()">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Process Output Modal -->
+    <div class="modal-overlay" id="output-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <span class="modal-title" id="output-title">Process Output</span>
+                <button class="modal-close" onclick="closeOutput()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="terminal-container">
+                    <div class="terminal-output" id="process-output" style="max-height: 400px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+    
+    <script>
+        // State
+        let currentPath = '{{ project_path }}';
+        let editingFile = null;
+        let commandHistory = [];
+        
+        // Tab Navigation
+        function showTab(name) {
+            document.querySelectorAll('.tabs').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById('tab-' + name).classList.add('active');
+            event.currentTarget.classList.add('active');
+            
+            if (name === 'files') {
+                loadFiles(currentPath);
+            }
+        }
+        
+        // Toast Notifications
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type + ' show';
+            setTimeout(() => toast.classList.remove('show'), 3000);
+        }
+        
+        // API Calls
+        async function api(endpoint, options = {}) {
+            try {
+                const response = await fetch('/api' + endpoint, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+                return await response.json();
+            } catch (error) {
+                showToast('Connection error', 'error');
+                throw error;
+            }
+        }
+        
+        // Terminal
+        function executeCommand() {
+            const input = document.getElementById('terminal-input');
+            const command = input.value.trim();
+            if (!command) return;
+            
+            input.value = '';
+            const output = document.getElementById('terminal-output');
+            output.innerHTML += `<span style="color: var(--success);">$</span> ${command}\n`;
+            output.scrollTop = output.scrollHeight;
+            
+            commandHistory.unshift(command);
+            updateCommandHistory();
+            
+            api('/execute', {
+                method: 'POST',
+                body: JSON.stringify({ command, cwd: currentPath })
+            }).then(result => {
+                if (result.success) {
+                    output.innerHTML += result.output + '\n';
+                } else {
+                    output.innerHTML += `<span style="color: var(--danger);">Error: ${result.error}</span>\n`;
+                }
+                output.scrollTop = output.scrollHeight;
+            });
+        }
+        
+        document.getElementById('terminal-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') executeCommand();
+        });
+        
+        function clearTerminal() {
+            document.getElementById('terminal-output').innerHTML = '';
+        }
+        
+        function updateCommandHistory() {
+            const container = document.getElementById('command-history');
+            if (commandHistory.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); font-size: 14px;">No command history yet</p>';
+                return;
+            }
+            container.innerHTML = commandHistory.slice(0, 10).map(cmd => 
+                `<div class="history-item" onclick="runHistoryCommand('${cmd.replace(/'/g, "\\'")}')">${cmd}</div>`
+            ).join('');
+        }
+        
+        function runHistoryCommand(cmd) {
+            document.getElementById('terminal-input').value = cmd;
+            showTab('terminal');
+            document.querySelector('[onclick="showTab(\'terminal\')"]').classList.add('active');
+        }
+        
+        // File Browser
+        async function loadFiles(path) {
+            const result = await api('/files/list?path=' + encodeURIComponent(path));
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            
+            currentPath = result.path;
+            document.getElementById('path-display').textContent = result.path;
+            
+            let html = '';
+            
+            // Parent directory
+            if (result.parent !== result.path) {
+                html += `
+                    <div class="file-item" onclick="loadFiles('${result.parent}')">
+                        <span class="file-icon">📂</span>
+                        <div class="file-info">
+                            <div class="file-name">..</div>
+                            <div class="file-meta">Parent directory</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            result.entries.forEach(entry => {
+                const icon = entry.is_dir ? '📁' : getFileIcon(entry.name);
+                const size = entry.is_dir ? '' : formatSize(entry.size);
+                const clickAction = entry.is_dir 
+                    ? `loadFiles('${entry.path}')`
+                    : `openFile('${entry.path}')`;
+                
+                html += `
+                    <div class="file-item" onclick="${clickAction}">
+                        <span class="file-icon">${icon}</span>
+                        <div class="file-info">
+                            <div class="file-name">${entry.name}</div>
+                            <div class="file-meta">${size}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            document.getElementById('file-list').innerHTML = html || '<p style="padding: 20px; color: var(--text-secondary);">Empty directory</p>';
+        }
+        
+        function getFileIcon(name) {
+            const ext = name.split('.').pop().toLowerCase();
+            const icons = {
+                'java': '☕', 'kt': '🟣', 'py': '🐍', 'js': '🟨', 'ts': '🔷',
+                'html': '🌐', 'css': '🎨', 'json': '📋', 'xml': '📄', 'yml': '⚙️',
+                'yaml': '⚙️', 'md': '📝', 'txt': '📄', 'sh': '💻', 'gradle': '🐘',
+                'properties': '🔧', 'sql': '🗃️'
+            };
+            return icons[ext] || '📄';
+        }
+        
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        
+        async function openFile(path) {
+            const result = await api('/files/read?path=' + encodeURIComponent(path));
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            
+            editingFile = path;
+            document.getElementById('editor-title').textContent = path.split('/').pop();
+            document.getElementById('editor-content').value = result.content;
+            document.getElementById('editor-modal').classList.add('active');
+        }
+        
+        function closeEditor() {
+            document.getElementById('editor-modal').classList.remove('active');
+            editingFile = null;
+        }
+        
+        async function saveFile() {
+            if (!editingFile) return;
+            
+            const content = document.getElementById('editor-content').value;
+            const result = await api('/files/write', {
+                method: 'POST',
+                body: JSON.stringify({ path: editingFile, content })
+            });
+            
+            if (result.success) {
+                showToast('File saved', 'success');
+                closeEditor();
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        // Spring Boot
+        async function refreshSpringStatus() {
+            const result = await api('/spring-boot/status');
+            const icon = document.getElementById('spring-icon');
+            const text = document.getElementById('spring-status-text');
+            const detail = document.getElementById('spring-status-detail');
+            
+            if (result.running) {
+                icon.classList.remove('stopped');
+                text.textContent = 'Running';
+                detail.textContent = result.processes.length + ' process(es) active';
+            } else {
+                icon.classList.add('stopped');
+                text.textContent = 'Stopped';
+                detail.textContent = 'No Spring Boot processes detected';
+            }
+        }
+        
+        async function springBootStart() {
+            showToast('Starting Spring Boot...', 'info');
+            const result = await api('/spring-boot/start', {
+                method: 'POST',
+                body: JSON.stringify({ path: currentPath })
+            });
+            
+            if (result.success) {
+                showToast('Spring Boot starting...', 'success');
+                setTimeout(refreshSpringStatus, 3000);
+                refreshProcessList();
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        async function springBootStop() {
+            const result = await api('/spring-boot/stop', { method: 'POST' });
+            if (result.success) {
+                showToast('Spring Boot stopped', 'success');
+                refreshSpringStatus();
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        // Processes
+        async function refreshProcessList() {
+            const result = await api('/process/list');
+            const container = document.getElementById('process-list');
+            
+            if (result.processes.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-secondary); font-size: 14px;">No processes running</p>';
+                return;
+            }
+            
+            container.innerHTML = result.processes.map(p => `
+                <div class="process-item">
+                    <div class="process-info">
+                        <div class="process-name">${p.name}</div>
+                        <div class="process-status ${p.running ? '' : 'stopped'}">
+                            ${p.running ? '● Running' : '○ Stopped'}
+                        </div>
+                    </div>
+                    <div class="process-actions">
+                        <button class="process-btn" onclick="viewProcessOutput('${p.id}', '${p.name}')">View</button>
+                        ${p.running ? `<button class="process-btn stop" onclick="stopProcess('${p.id}')">Stop</button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        async function viewProcessOutput(id, name) {
+            const result = await api('/process/' + id + '/output');
+            document.getElementById('output-title').textContent = name;
+            document.getElementById('process-output').textContent = result.output || 'No output';
+            document.getElementById('output-modal').classList.add('active');
+        }
+        
+        function closeOutput() {
+            document.getElementById('output-modal').classList.remove('active');
+        }
+        
+        async function stopProcess(id) {
+            await api('/process/' + id + '/stop', { method: 'POST' });
+            showToast('Process stopped', 'success');
+            refreshProcessList();
+        }
+        
+        // Cursor
+        async function openCursor() {
+            const result = await api('/cursor/open', {
+                method: 'POST',
+                body: JSON.stringify({ path: currentPath })
+            });
+            showToast(result.success ? 'Opened in Cursor' : result.error, result.success ? 'success' : 'error');
+        }
+        
+        // Git
+        async function gitStatus() {
+            const result = await api('/git/status?path=' + encodeURIComponent(currentPath));
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            
+            const output = document.getElementById('terminal-output');
+            output.innerHTML += `<span style="color: var(--accent);">Git Status (${result.branch})</span>\n`;
+            output.innerHTML += result.clean ? 'Working tree clean\n' : result.status + '\n';
+            showTab('terminal');
+        }
+        
+        // Logs
+        async function showLogs() {
+            const result = await api('/logs');
+            const output = document.getElementById('terminal-output');
+            output.innerHTML = '<span style="color: var(--accent);">Server Logs</span>\n\n';
+            result.logs.forEach(log => {
+                const color = log.level === 'error' ? 'var(--danger)' : 
+                              log.level === 'warning' ? 'var(--warning)' : 'var(--text-secondary)';
+                output.innerHTML += `<span style="color: ${color}">[${log.level}] ${log.message}</span>\n`;
+            });
+            showTab('terminal');
+        }
+        
+        // Initialize
+        refreshSpringStatus();
+        refreshProcessList();
+        setInterval(refreshProcessList, 10000);
+        setInterval(refreshSpringStatus, 15000);
+    </script>
+</body>
+</html>
