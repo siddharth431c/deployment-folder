@@ -1,0 +1,69 @@
+{
+  "microservices": [
+    {
+      "name": "api-gateway",
+      "path": "/path/to/api-gateway",
+      "type": "spring-boot",
+      "build_tool": "maven",
+      "port": 8080,
+      "start_command": "./mvnw spring-boot:run",
+      "build_command": "./mvnw clean package -DskipTests"
+    },
+    {
+      "name": "user-service",
+      "path": "/path/to/user-service",
+      "type": "spring-boot",
+      "build_tool": "maven",
+      "port": 8081,
+      "start_command": "./mvnw spring-boot:run",
+      "build_command": "./mvnw clean package -DskipTests"
+    },
+    {
+      "name": "order-service",
+      "path": "/path/to/order-service",
+      "type": "spring-boot",
+      "build_tool": "gradle",
+      "port": 8082,
+      "start_command": "./gradlew bootRun",
+      "build_command": "./gradlew build -x test"
+    },
+    {
+      "name": "payment-service",
+      "path": "/path/to/payment-service",
+      "type": "spring-boot",
+      "build_tool": "maven",
+      "port": 8083,
+      "start_command": "./mvnw spring-boot:run",
+      "build_command": "./mvnw clean package -DskipTests"
+    },
+    {
+      "name": "notification-service",
+      "path": "/path/to/notification-service",
+      "type": "spring-boot",
+      "build_tool": "maven",
+      "port": 8084,
+      "start_command": "./mvnw spring-boot:run",
+      "build_command": "./mvnw clean package -DskipTests"
+    }
+  ],
+  "frontends": [
+    {
+      "name": "web-app",
+      "path": "/path/to/frontend",
+      "type": "react",
+      "port": 3000,
+      "start_command": "npm run dev",
+      "build_command": "npm run build",
+      "install_command": "npm install"
+    },
+    {
+      "name": "admin-portal",
+      "path": "/path/to/admin-portal",
+      "type": "nextjs",
+      "port": 3001,
+      "start_command": "npm run dev",
+      "build_command": "npm run build",
+      "install_command": "npm install"
+    }
+  ]
+}

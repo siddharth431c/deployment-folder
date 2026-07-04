@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Cursor Remote Agent - Control your Cursor IDE from your iPhone
-A web-based remote control server for development tasks
+A web-based remote control server for multi-microservice development
+Supports multiple Spring Boot services + React frontend
 """
 
 import os
@@ -13,6 +14,7 @@ import time
 import secrets
 import hashlib
 import signal
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
@@ -29,17 +31,18 @@ CORS(app)
 
 # Configuration
 CONFIG = {
-    'project_path': os.environ.get('PROJECT_PATH', os.path.expanduser('~')),
+    'workspace_path': os.environ.get('WORKSPACE_PATH', os.path.expanduser('~')),
     'password': os.environ.get('AGENT_PASSWORD', 'cursor123'),
     'port': int(os.environ.get('AGENT_PORT', 8765)),
     'host': os.environ.get('AGENT_HOST', '0.0.0.0'),
-    'session_timeout': 3600,  # 1 hour
+    'session_timeout': 3600,
     'max_output_lines': 500,
-    'allowed_commands': None,  # None means all commands allowed
+    'services_config': None,  # Will be loaded from services.json
 }
 
-# Global state for running processes
+# Global state for running processes and services
 running_processes = {}
+managed_services = {}
 command_history = []
 log_buffer = []
 
@@ -54,6 +57,199 @@ def add_log(level, message):
     log_buffer.append(entry)
     if len(log_buffer) > 1000:
         log_buffer.pop(0)
+    print(f"[{level.upper()}] {message}")
+
+
+def load_services_config():
+    """Load services configuration from file or auto-detect"""
+    config_path = os.path.join(CONFIG['workspace_path'], 'services.json')
+    
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, 'r') as f:
+                CONFIG['services_config'] = json.load(f)
+                add_log('info', f'Loaded services config from {config_path}')
+                return
+        except Exception as e:
+            add_log('warning', f'Failed to load services config: {e}')
+    
+    # Auto-detect services
+    CONFIG['services_config'] = auto_detect_services()
+
+
+def auto_detect_services():
+    """Auto-detect microservices and frontend in workspace"""
+    services = {'microservices': [], 'frontends': []}
+    workspace = CONFIG['workspace_path']
+    
+    add_log('info', f'Auto-detecting services in {workspace}')
+    
+    # Search for Spring Boot projects (pom.xml or build.gradle with spring-boot)
+    for root, dirs, files in os.walk(workspace):
+        # Skip common non-project directories
+        dirs[:] = [d for d in dirs if d not in ['node_modules', 'target', 'build', '.git', 'dist', '.idea', 'venv']]
+        
+        depth = root.replace(workspace, '').count(os.sep)
+        if depth > 3:  # Don't go too deep
+            continue
+        
+        # Check for Spring Boot (Maven)
+        if 'pom.xml' in files:
+            pom_path = os.path.join(root, 'pom.xml')
+            try:
+                with open(pom_path, 'r') as f:
+                    content = f.read()
+                    if 'spring-boot' in content.lower():
+                        service_name = os.path.basename(root)
+                        # Try to detect port from application.properties/yml
+                        port = detect_spring_port(root)
+                        services['microservices'].append({
+                            'name': service_name,
+                            'path': root,
+                            'type': 'spring-boot',
+                            'build_tool': 'maven',
+                            'port': port,
+                            'start_command': './mvnw spring-boot:run' if os.path.exists(os.path.join(root, 'mvnw')) else 'mvn spring-boot:run',
+                            'build_command': './mvnw clean package -DskipTests' if os.path.exists(os.path.join(root, 'mvnw')) else 'mvn clean package -DskipTests'
+                        })
+                        add_log('info', f'Detected Spring Boot (Maven): {service_name} on port {port}')
+            except Exception as e:
+                pass
+        
+        # Check for Spring Boot (Gradle)
+        if 'build.gradle' in files or 'build.gradle.kts' in files:
+            gradle_file = 'build.gradle.kts' if 'build.gradle.kts' in files else 'build.gradle'
+            gradle_path = os.path.join(root, gradle_file)
+            try:
+                with open(gradle_path, 'r') as f:
+                    content = f.read()
+                    if 'spring-boot' in content.lower() or 'org.springframework.boot' in content:
+                        service_name = os.path.basename(root)
+                        port = detect_spring_port(root)
+                        services['microservices'].append({
+                            'name': service_name,
+                            'path': root,
+                            'type': 'spring-boot',
+                            'build_tool': 'gradle',
+                            'port': port,
+                            'start_command': './gradlew bootRun' if os.path.exists(os.path.join(root, 'gradlew')) else 'gradle bootRun',
+                            'build_command': './gradlew build -x test' if os.path.exists(os.path.join(root, 'gradlew')) else 'gradle build -x test'
+                        })
+                        add_log('info', f'Detected Spring Boot (Gradle): {service_name} on port {port}')
+            except Exception as e:
+                pass
+        
+        # Check for React/Node.js frontend
+        if 'package.json' in files:
+            pkg_path = os.path.join(root, 'package.json')
+            try:
+                with open(pkg_path, 'r') as f:
+                    pkg = json.load(f)
+                    deps = {**pkg.get('dependencies', {}), **pkg.get('devDependencies', {})}
+                    
+                    # Detect React
+                    if 'react' in deps or 'next' in deps or 'vue' in deps or 'angular' in deps.get('@angular/core', ''):
+                        frontend_type = 'react'
+                        if 'next' in deps:
+                            frontend_type = 'nextjs'
+                        elif 'vue' in deps:
+                            frontend_type = 'vue'
+                        
+                        service_name = pkg.get('name', os.path.basename(root))
+                        port = detect_frontend_port(root, pkg)
+                        
+                        # Determine start command
+                        scripts = pkg.get('scripts', {})
+                        start_cmd = 'npm start'
+                        if 'dev' in scripts:
+                            start_cmd = 'npm run dev'
+                        elif 'start' in scripts:
+                            start_cmd = 'npm start'
+                        
+                        services['frontends'].append({
+                            'name': service_name,
+                            'path': root,
+                            'type': frontend_type,
+                            'port': port,
+                            'start_command': start_cmd,
+                            'build_command': 'npm run build',
+                            'install_command': 'npm install'
+                        })
+                        add_log('info', f'Detected {frontend_type} frontend: {service_name} on port {port}')
+            except Exception as e:
+                pass
+    
+    return services
+
+
+def detect_spring_port(project_path):
+    """Detect Spring Boot port from configuration files"""
+    # Check application.properties
+    props_path = os.path.join(project_path, 'src', 'main', 'resources', 'application.properties')
+    if os.path.exists(props_path):
+        try:
+            with open(props_path, 'r') as f:
+                for line in f:
+                    if 'server.port' in line:
+                        match = re.search(r'server\.port\s*=\s*(\d+)', line)
+                        if match:
+                            return int(match.group(1))
+        except:
+            pass
+    
+    # Check application.yml
+    yml_path = os.path.join(project_path, 'src', 'main', 'resources', 'application.yml')
+    if os.path.exists(yml_path):
+        try:
+            with open(yml_path, 'r') as f:
+                content = f.read()
+                match = re.search(r'port:\s*(\d+)', content)
+                if match:
+                    return int(match.group(1))
+        except:
+            pass
+    
+    # Check application.yaml
+    yaml_path = os.path.join(project_path, 'src', 'main', 'resources', 'application.yaml')
+    if os.path.exists(yaml_path):
+        try:
+            with open(yaml_path, 'r') as f:
+                content = f.read()
+                match = re.search(r'port:\s*(\d+)', content)
+                if match:
+                    return int(match.group(1))
+        except:
+            pass
+    
+    return 8080  # Default Spring Boot port
+
+
+def detect_frontend_port(project_path, package_json):
+    """Detect frontend port from configuration"""
+    # Check for port in scripts
+    scripts = package_json.get('scripts', {})
+    for script in scripts.values():
+        match = re.search(r'--port[=\s]+(\d+)', str(script))
+        if match:
+            return int(match.group(1))
+        match = re.search(r'-p[=\s]+(\d+)', str(script))
+        if match:
+            return int(match.group(1))
+    
+    # Check for .env file
+    env_path = os.path.join(project_path, '.env')
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, 'r') as f:
+                for line in f:
+                    if 'PORT' in line:
+                        match = re.search(r'PORT\s*=\s*(\d+)', line)
+                        if match:
+                            return int(match.group(1))
+        except:
+            pass
+    
+    return 3000  # Default React port
 
 
 def require_auth(f):
@@ -73,7 +269,9 @@ def index():
     """Main dashboard - redirect to login if not authenticated"""
     if not session.get('authenticated'):
         return redirect(url_for('login'))
-    return render_template('index.html', project_path=CONFIG['project_path'])
+    return render_template('index.html', 
+                          workspace_path=CONFIG['workspace_path'],
+                          services=CONFIG['services_config'])
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -104,10 +302,355 @@ def api_status():
     """Get server status"""
     return jsonify({
         'status': 'running',
-        'project_path': CONFIG['project_path'],
+        'workspace_path': CONFIG['workspace_path'],
         'running_processes': len(running_processes),
+        'managed_services': len(managed_services),
         'uptime': datetime.now().isoformat()
     })
+
+
+@app.route('/api/services')
+@require_auth
+def api_services():
+    """Get all configured services"""
+    return jsonify(CONFIG['services_config'])
+
+
+@app.route('/api/services/refresh', methods=['POST'])
+@require_auth
+def api_services_refresh():
+    """Re-detect services"""
+    CONFIG['services_config'] = auto_detect_services()
+    return jsonify({
+        'success': True,
+        'services': CONFIG['services_config']
+    })
+
+
+@app.route('/api/services/status')
+@require_auth
+def api_services_status():
+    """Get status of all services"""
+    statuses = []
+    
+    # Check microservices
+    for svc in CONFIG['services_config'].get('microservices', []):
+        status = check_service_status(svc)
+        statuses.append(status)
+    
+    # Check frontends
+    for svc in CONFIG['services_config'].get('frontends', []):
+        status = check_service_status(svc)
+        statuses.append(status)
+    
+    return jsonify({'services': statuses})
+
+
+def check_service_status(service):
+    """Check if a service is running"""
+    port = service.get('port', 0)
+    name = service['name']
+    
+    # Check if we have a managed process
+    if name in managed_services:
+        proc_info = managed_services[name]
+        proc = proc_info.get('process')
+        if proc and proc.poll() is None:
+            return {
+                **service,
+                'status': 'running',
+                'managed': True,
+                'pid': proc.pid
+            }
+    
+    # Check if port is in use
+    if port:
+        try:
+            result = subprocess.run(
+                f"lsof -i :{port} -t",
+                shell=True,
+                capture_output=True,
+                text=True
+            )
+            if result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                return {
+                    **service,
+                    'status': 'running',
+                    'managed': False,
+                    'pid': pids[0]
+                }
+        except:
+            pass
+    
+    return {
+        **service,
+        'status': 'stopped',
+        'managed': False,
+        'pid': None
+    }
+
+
+@app.route('/api/service/<service_name>/start', methods=['POST'])
+@require_auth
+def api_service_start(service_name):
+    """Start a specific service"""
+    # Find service
+    service = None
+    for svc in CONFIG['services_config'].get('microservices', []) + CONFIG['services_config'].get('frontends', []):
+        if svc['name'] == service_name:
+            service = svc
+            break
+    
+    if not service:
+        return jsonify({'error': f'Service {service_name} not found'}), 404
+    
+    # Check if already running
+    status = check_service_status(service)
+    if status['status'] == 'running':
+        return jsonify({'error': f'Service {service_name} is already running'}), 400
+    
+    # Get optional profile/environment
+    data = request.get_json() or {}
+    profile = data.get('profile', '')
+    env_vars = data.get('env', {})
+    
+    # Build command
+    command = service['start_command']
+    if profile and service['type'] == 'spring-boot':
+        if 'maven' in service.get('build_tool', ''):
+            command += f' -Dspring-boot.run.profiles={profile}'
+        else:
+            command += f" --args='--spring.profiles.active={profile}'"
+    
+    # Set up environment
+    env = os.environ.copy()
+    env.update(env_vars)
+    
+    # Start process
+    process = subprocess.Popen(
+        command,
+        shell=True,
+        cwd=service['path'],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env
+    )
+    
+    managed_services[service_name] = {
+        'process': process,
+        'service': service,
+        'started': datetime.now().isoformat(),
+        'command': command,
+        'output': []
+    }
+    
+    # Start output capture thread
+    def capture_output():
+        for line in iter(process.stdout.readline, ''):
+            if service_name in managed_services:
+                managed_services[service_name]['output'].append(line)
+                if len(managed_services[service_name]['output']) > 2000:
+                    managed_services[service_name]['output'].pop(0)
+    
+    thread = threading.Thread(target=capture_output, daemon=True)
+    thread.start()
+    
+    add_log('info', f'Started service: {service_name}')
+    
+    return jsonify({
+        'success': True,
+        'service': service_name,
+        'pid': process.pid,
+        'command': command
+    })
+
+
+@app.route('/api/service/<service_name>/stop', methods=['POST'])
+@require_auth
+def api_service_stop(service_name):
+    """Stop a specific service"""
+    # Check if we manage it
+    if service_name in managed_services:
+        proc_info = managed_services[service_name]
+        proc = proc_info.get('process')
+        if proc:
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        del managed_services[service_name]
+        add_log('info', f'Stopped managed service: {service_name}')
+        return jsonify({'success': True})
+    
+    # Try to find and kill by port
+    service = None
+    for svc in CONFIG['services_config'].get('microservices', []) + CONFIG['services_config'].get('frontends', []):
+        if svc['name'] == service_name:
+            service = svc
+            break
+    
+    if service and service.get('port'):
+        try:
+            subprocess.run(
+                f"lsof -i :{service['port']} -t | xargs kill -9 2>/dev/null || true",
+                shell=True
+            )
+            add_log('info', f'Stopped service on port {service["port"]}: {service_name}')
+            return jsonify({'success': True})
+        except:
+            pass
+    
+    return jsonify({'error': 'Could not stop service'}), 500
+
+
+@app.route('/api/service/<service_name>/restart', methods=['POST'])
+@require_auth
+def api_service_restart(service_name):
+    """Restart a specific service"""
+    # Stop first
+    api_service_stop(service_name)
+    time.sleep(2)
+    # Start again
+    return api_service_start(service_name)
+
+
+@app.route('/api/service/<service_name>/output')
+@require_auth
+def api_service_output(service_name):
+    """Get service output logs"""
+    if service_name not in managed_services:
+        return jsonify({'error': 'Service not managed or not found'}), 404
+    
+    info = managed_services[service_name]
+    lines = request.args.get('lines', 100, type=int)
+    
+    return jsonify({
+        'output': ''.join(info['output'][-lines:]),
+        'total_lines': len(info['output']),
+        'running': info['process'].poll() is None
+    })
+
+
+@app.route('/api/service/<service_name>/build', methods=['POST'])
+@require_auth
+def api_service_build(service_name):
+    """Build a specific service"""
+    service = None
+    for svc in CONFIG['services_config'].get('microservices', []) + CONFIG['services_config'].get('frontends', []):
+        if svc['name'] == service_name:
+            service = svc
+            break
+    
+    if not service:
+        return jsonify({'error': f'Service {service_name} not found'}), 404
+    
+    command = service.get('build_command', '')
+    if not command:
+        return jsonify({'error': 'No build command configured'}), 400
+    
+    add_log('info', f'Building service: {service_name}')
+    
+    try:
+        result = subprocess.run(
+            command,
+            shell=True,
+            cwd=service['path'],
+            capture_output=True,
+            text=True,
+            timeout=300  # 5 minute timeout for builds
+        )
+        
+        return jsonify({
+            'success': result.returncode == 0,
+            'output': result.stdout + result.stderr,
+            'return_code': result.returncode
+        })
+    except subprocess.TimeoutExpired:
+        return jsonify({'error': 'Build timed out'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/services/start-all', methods=['POST'])
+@require_auth
+def api_services_start_all():
+    """Start all services"""
+    data = request.get_json() or {}
+    include_frontend = data.get('include_frontend', True)
+    profile = data.get('profile', '')
+    
+    results = []
+    
+    # Start microservices first
+    for svc in CONFIG['services_config'].get('microservices', []):
+        try:
+            # Make internal request to start
+            with app.test_request_context(
+                f'/api/service/{svc["name"]}/start',
+                method='POST',
+                json={'profile': profile}
+            ):
+                session['authenticated'] = True
+                result = api_service_start(svc['name'])
+                results.append({
+                    'service': svc['name'],
+                    'success': True,
+                    'type': 'microservice'
+                })
+        except Exception as e:
+            results.append({
+                'service': svc['name'],
+                'success': False,
+                'error': str(e),
+                'type': 'microservice'
+            })
+        time.sleep(1)  # Stagger starts
+    
+    # Start frontends
+    if include_frontend:
+        for svc in CONFIG['services_config'].get('frontends', []):
+            try:
+                with app.test_request_context(
+                    f'/api/service/{svc["name"]}/start',
+                    method='POST',
+                    json={}
+                ):
+                    session['authenticated'] = True
+                    result = api_service_start(svc['name'])
+                    results.append({
+                        'service': svc['name'],
+                        'success': True,
+                        'type': 'frontend'
+                    })
+            except Exception as e:
+                results.append({
+                    'service': svc['name'],
+                    'success': False,
+                    'error': str(e),
+                    'type': 'frontend'
+                })
+    
+    return jsonify({'results': results})
+
+
+@app.route('/api/services/stop-all', methods=['POST'])
+@require_auth
+def api_services_stop_all():
+    """Stop all services"""
+    results = []
+    
+    # Stop all managed services
+    for name in list(managed_services.keys()):
+        try:
+            api_service_stop(name)
+            results.append({'service': name, 'success': True})
+        except Exception as e:
+            results.append({'service': name, 'success': False, 'error': str(e)})
+    
+    return jsonify({'results': results})
 
 
 @app.route('/api/execute', methods=['POST'])
@@ -116,7 +659,7 @@ def api_execute():
     """Execute a shell command"""
     data = request.get_json()
     command = data.get('command', '')
-    cwd = data.get('cwd', CONFIG['project_path'])
+    cwd = data.get('cwd', CONFIG['workspace_path'])
     timeout = data.get('timeout', 60)
     
     if not command:
@@ -163,156 +706,11 @@ def api_execute():
         })
 
 
-@app.route('/api/execute/stream', methods=['POST'])
-@require_auth
-def api_execute_stream():
-    """Execute a command with streaming output"""
-    data = request.get_json()
-    command = data.get('command', '')
-    cwd = data.get('cwd', CONFIG['project_path'])
-    
-    if not command:
-        return jsonify({'error': 'No command provided'}), 400
-    
-    def generate():
-        process = subprocess.Popen(
-            command,
-            shell=True,
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
-        )
-        
-        proc_id = str(id(process))
-        running_processes[proc_id] = process
-        
-        try:
-            for line in iter(process.stdout.readline, ''):
-                yield f"data: {json.dumps({'line': line})}\n\n"
-            
-            process.wait()
-            yield f"data: {json.dumps({'done': True, 'return_code': process.returncode})}\n\n"
-        finally:
-            if proc_id in running_processes:
-                del running_processes[proc_id]
-    
-    return Response(
-        stream_with_context(generate()),
-        mimetype='text/event-stream'
-    )
-
-
-@app.route('/api/process/start', methods=['POST'])
-@require_auth
-def api_process_start():
-    """Start a long-running process"""
-    data = request.get_json()
-    command = data.get('command', '')
-    name = data.get('name', command[:30])
-    cwd = data.get('cwd', CONFIG['project_path'])
-    
-    if not command:
-        return jsonify({'error': 'No command provided'}), 400
-    
-    process = subprocess.Popen(
-        command,
-        shell=True,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True
-    )
-    
-    proc_id = str(id(process))
-    running_processes[proc_id] = {
-        'process': process,
-        'name': name,
-        'command': command,
-        'started': datetime.now().isoformat(),
-        'output': []
-    }
-    
-    def capture_output():
-        for line in iter(process.stdout.readline, ''):
-            if proc_id in running_processes:
-                running_processes[proc_id]['output'].append(line)
-                if len(running_processes[proc_id]['output']) > 1000:
-                    running_processes[proc_id]['output'].pop(0)
-    
-    thread = threading.Thread(target=capture_output, daemon=True)
-    thread.start()
-    
-    add_log('info', f'Started process: {name} (ID: {proc_id})')
-    
-    return jsonify({
-        'success': True,
-        'process_id': proc_id,
-        'name': name
-    })
-
-
-@app.route('/api/process/list')
-@require_auth
-def api_process_list():
-    """List running processes"""
-    processes = []
-    for proc_id, info in running_processes.items():
-        if isinstance(info, dict):
-            proc = info['process']
-            processes.append({
-                'id': proc_id,
-                'name': info['name'],
-                'command': info['command'],
-                'started': info['started'],
-                'running': proc.poll() is None,
-                'output_lines': len(info.get('output', []))
-            })
-    return jsonify({'processes': processes})
-
-
-@app.route('/api/process/<proc_id>/output')
-@require_auth
-def api_process_output(proc_id):
-    """Get process output"""
-    if proc_id not in running_processes:
-        return jsonify({'error': 'Process not found'}), 404
-    
-    info = running_processes[proc_id]
-    if isinstance(info, dict):
-        return jsonify({
-            'output': ''.join(info.get('output', [])),
-            'running': info['process'].poll() is None
-        })
-    return jsonify({'error': 'Invalid process info'}), 500
-
-
-@app.route('/api/process/<proc_id>/stop', methods=['POST'])
-@require_auth
-def api_process_stop(proc_id):
-    """Stop a running process"""
-    if proc_id not in running_processes:
-        return jsonify({'error': 'Process not found'}), 404
-    
-    info = running_processes[proc_id]
-    if isinstance(info, dict):
-        proc = info['process']
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-        add_log('info', f'Stopped process: {info["name"]}')
-    
-    return jsonify({'success': True})
-
-
 @app.route('/api/files/list')
 @require_auth
 def api_files_list():
     """List files in a directory"""
-    path = request.args.get('path', CONFIG['project_path'])
+    path = request.args.get('path', CONFIG['workspace_path'])
     
     try:
         entries = []
@@ -380,144 +778,11 @@ def api_files_write():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/spring-boot/status')
-@require_auth
-def api_spring_boot_status():
-    """Check Spring Boot application status"""
-    try:
-        result = subprocess.run(
-            "ps aux | grep -E '[j]ava.*spring|[m]vn.*spring|[g]radle.*boot' | head -5",
-            shell=True,
-            capture_output=True,
-            text=True
-        )
-        
-        processes = []
-        for line in result.stdout.strip().split('\n'):
-            if line:
-                parts = line.split()
-                if len(parts) >= 11:
-                    processes.append({
-                        'pid': parts[1],
-                        'cpu': parts[2],
-                        'mem': parts[3],
-                        'command': ' '.join(parts[10:])[:100]
-                    })
-        
-        # Check common Spring Boot ports
-        port_check = subprocess.run(
-            "lsof -i :8080 -i :8081 -i :9000 2>/dev/null | grep LISTEN | head -5",
-            shell=True,
-            capture_output=True,
-            text=True
-        )
-        
-        ports = []
-        for line in port_check.stdout.strip().split('\n'):
-            if line and 'LISTEN' in line:
-                parts = line.split()
-                if len(parts) >= 9:
-                    ports.append({
-                        'process': parts[0],
-                        'pid': parts[1],
-                        'port': parts[8]
-                    })
-        
-        return jsonify({
-            'running': len(processes) > 0,
-            'processes': processes,
-            'listening_ports': ports
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
-@app.route('/api/spring-boot/start', methods=['POST'])
-@require_auth
-def api_spring_boot_start():
-    """Start Spring Boot application"""
-    data = request.get_json() or {}
-    cwd = data.get('path', CONFIG['project_path'])
-    profile = data.get('profile', 'default')
-    
-    # Detect build tool
-    has_maven = os.path.exists(os.path.join(cwd, 'pom.xml'))
-    has_gradle = os.path.exists(os.path.join(cwd, 'build.gradle')) or \
-                 os.path.exists(os.path.join(cwd, 'build.gradle.kts'))
-    
-    if has_maven:
-        command = f"./mvnw spring-boot:run -Dspring-boot.run.profiles={profile}"
-        if not os.path.exists(os.path.join(cwd, 'mvnw')):
-            command = f"mvn spring-boot:run -Dspring-boot.run.profiles={profile}"
-    elif has_gradle:
-        command = f"./gradlew bootRun --args='--spring.profiles.active={profile}'"
-        if not os.path.exists(os.path.join(cwd, 'gradlew')):
-            command = f"gradle bootRun --args='--spring.profiles.active={profile}'"
-    else:
-        return jsonify({
-            'error': 'No Maven or Gradle build file found in project path'
-        }), 400
-    
-    # Start as background process
-    process = subprocess.Popen(
-        command,
-        shell=True,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True
-    )
-    
-    proc_id = str(id(process))
-    running_processes[proc_id] = {
-        'process': process,
-        'name': 'Spring Boot',
-        'command': command,
-        'started': datetime.now().isoformat(),
-        'output': []
-    }
-    
-    def capture_output():
-        for line in iter(process.stdout.readline, ''):
-            if proc_id in running_processes:
-                running_processes[proc_id]['output'].append(line)
-                if len(running_processes[proc_id]['output']) > 2000:
-                    running_processes[proc_id]['output'].pop(0)
-    
-    thread = threading.Thread(target=capture_output, daemon=True)
-    thread.start()
-    
-    add_log('info', f'Started Spring Boot application (ID: {proc_id})')
-    
-    return jsonify({
-        'success': True,
-        'process_id': proc_id,
-        'command': command
-    })
-
-
-@app.route('/api/spring-boot/stop', methods=['POST'])
-@require_auth
-def api_spring_boot_stop():
-    """Stop Spring Boot application"""
-    # Find and stop Spring Boot processes
-    try:
-        subprocess.run(
-            "pkill -f 'java.*spring' || true",
-            shell=True,
-            capture_output=True
-        )
-        add_log('info', 'Stopped Spring Boot application')
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-
 @app.route('/api/git/status')
 @require_auth
 def api_git_status():
     """Get git status"""
-    cwd = request.args.get('path', CONFIG['project_path'])
+    cwd = request.args.get('path', CONFIG['workspace_path'])
     
     try:
         result = subprocess.run(
@@ -562,16 +827,11 @@ def api_logs():
 @app.route('/api/cursor/open', methods=['POST'])
 @require_auth
 def api_cursor_open():
-    """Open a file in Cursor IDE"""
+    """Open a file or folder in Cursor IDE"""
     data = request.get_json()
-    path = data.get('path')
-    line = data.get('line', 1)
-    
-    if not path:
-        return jsonify({'error': 'No path provided'}), 400
+    path = data.get('path', CONFIG['workspace_path'])
     
     try:
-        # Try to open in Cursor (macOS)
         cmd = f'open -a "Cursor" "{path}"'
         subprocess.run(cmd, shell=True, check=True)
         add_log('info', f'Opened in Cursor: {path}')
@@ -580,34 +840,30 @@ def api_cursor_open():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/cursor/command', methods=['POST'])
+@app.route('/api/docker/status')
 @require_auth
-def api_cursor_command():
-    """Send a command to Cursor via command palette simulation"""
-    data = request.get_json()
-    command = data.get('command')
-    
-    if not command:
-        return jsonify({'error': 'No command provided'}), 400
-    
+def api_docker_status():
+    """Get Docker container status"""
     try:
-        # Use AppleScript to send keyboard shortcuts to Cursor
-        script = f'''
-        tell application "Cursor"
-            activate
-        end tell
-        delay 0.5
-        tell application "System Events"
-            keystroke "p" using {{command down, shift down}}
-            delay 0.3
-            keystroke "{command}"
-            delay 0.2
-            key code 36
-        end tell
-        '''
-        subprocess.run(['osascript', '-e', script], check=True)
-        add_log('info', f'Sent Cursor command: {command}')
-        return jsonify({'success': True})
+        result = subprocess.run(
+            'docker ps --format "{{.Names}}\t{{.Status}}\t{{.Ports}}"',
+            shell=True,
+            capture_output=True,
+            text=True
+        )
+        
+        containers = []
+        for line in result.stdout.strip().split('\n'):
+            if line:
+                parts = line.split('\t')
+                if len(parts) >= 2:
+                    containers.append({
+                        'name': parts[0],
+                        'status': parts[1],
+                        'ports': parts[2] if len(parts) > 2 else ''
+                    })
+        
+        return jsonify({'containers': containers})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -615,38 +871,57 @@ def api_cursor_command():
 def main():
     """Main entry point"""
     import argparse
-    parser = argparse.ArgumentParser(description='Cursor Remote Agent')
+    parser = argparse.ArgumentParser(description='Cursor Remote Agent - Multi-Service Edition')
     parser.add_argument('--port', type=int, default=CONFIG['port'],
                        help='Port to listen on')
     parser.add_argument('--host', default=CONFIG['host'],
                        help='Host to bind to')
     parser.add_argument('--password', default=CONFIG['password'],
                        help='Password for authentication')
-    parser.add_argument('--project', default=CONFIG['project_path'],
-                       help='Default project path')
+    parser.add_argument('--workspace', default=CONFIG['workspace_path'],
+                       help='Workspace path containing all projects')
     args = parser.parse_args()
     
     CONFIG['port'] = args.port
     CONFIG['host'] = args.host
     CONFIG['password'] = args.password
-    CONFIG['project_path'] = os.path.expanduser(args.project)
+    CONFIG['workspace_path'] = os.path.expanduser(args.workspace)
+    
+    # Load/detect services
+    load_services_config()
+    
+    services_count = len(CONFIG['services_config'].get('microservices', [])) + \
+                    len(CONFIG['services_config'].get('frontends', []))
     
     print(f"""
-╔═══════════════════════════════════════════════════════════════════╗
-║           Cursor Remote Agent - Mobile Development Control         ║
-╠═══════════════════════════════════════════════════════════════════╣
-║                                                                     ║
-║  Server running at: http://{args.host}:{args.port}                          ║
-║  Password: {args.password}                                                 ║
-║  Project: {args.project[:50]}                                       ║
-║                                                                     ║
-║  To connect from your iPhone:                                       ║
-║  1. Make sure your Mac and iPhone are on the same network           ║
-║  2. Find your Mac's local IP: ifconfig | grep "inet "               ║
-║  3. Open Safari on your iPhone and go to:                           ║
-║     http://YOUR_MAC_IP:{args.port}                                    ║
-║                                                                     ║
-╚═══════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════════════╗
+║     Cursor Remote Agent - Multi-Microservice Edition                   ║
+╠═══════════════════════════════════════════════════════════════════════╣
+║                                                                         ║
+║  Server running at: http://{args.host}:{args.port}                              ║
+║  Password: {args.password}                                                     ║
+║  Workspace: {args.workspace[:50]}                                       ║
+║  Detected Services: {services_count}                                              ║
+║                                                                         ║
+║  Microservices:                                                         ║""")
+    
+    for svc in CONFIG['services_config'].get('microservices', []):
+        print(f"║    • {svc['name'][:30]:<30} (port {svc['port']})                    ║")
+    
+    print("║                                                                         ║")
+    print("║  Frontends:                                                             ║")
+    
+    for svc in CONFIG['services_config'].get('frontends', []):
+        print(f"║    • {svc['name'][:30]:<30} (port {svc['port']})                    ║")
+    
+    print(f"""║                                                                         ║
+║  To connect from your iPhone:                                           ║
+║  1. Make sure your Mac and iPhone are on the same network               ║
+║  2. Find your Mac's local IP: ifconfig | grep "inet "                   ║
+║  3. Open Safari on your iPhone and go to:                               ║
+║     http://YOUR_MAC_IP:{args.port}                                        ║
+║                                                                         ║
+╚═══════════════════════════════════════════════════════════════════════╝
     """)
     
     add_log('info', f'Server started on {args.host}:{args.port}')

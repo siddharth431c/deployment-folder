@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Cursor Remote Agent</title>
+    <title>Cursor Remote - Multi-Service</title>
     <style>
         * {
             margin: 0;
@@ -27,6 +27,8 @@
             --border: #30363d;
             --purple: #a855f7;
             --green: #22c55e;
+            --spring-green: #6db33f;
+            --react-blue: #61dafb;
         }
         
         body {
@@ -70,6 +72,11 @@
         .header h1 {
             font-size: 18px;
             font-weight: 600;
+        }
+        
+        .header-subtitle {
+            font-size: 11px;
+            color: var(--text-secondary);
         }
         
         .status-indicator {
@@ -160,13 +167,23 @@
         }
         
         .action-btn.success {
-            background: var(--success);
-            border-color: var(--success);
+            background: var(--spring-green);
+            border-color: var(--spring-green);
         }
         
         .action-btn.danger {
             background: var(--danger);
             border-color: var(--danger);
+        }
+        
+        .action-btn.react {
+            background: #20232a;
+            border-color: var(--react-blue);
+        }
+        
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         
         .action-icon {
@@ -176,6 +193,142 @@
         .action-label {
             font-size: 13px;
             font-weight: 500;
+            text-align: center;
+        }
+        
+        /* Service Cards */
+        .service-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .service-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            transition: border-color 0.2s;
+        }
+        
+        .service-card.running {
+            border-color: var(--success);
+        }
+        
+        .service-card.spring-boot {
+            border-left: 4px solid var(--spring-green);
+        }
+        
+        .service-card.react, .service-card.nextjs, .service-card.vue {
+            border-left: 4px solid var(--react-blue);
+        }
+        
+        .service-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        
+        .service-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .service-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+        
+        .service-icon.spring {
+            background: rgba(109, 179, 63, 0.2);
+        }
+        
+        .service-icon.react {
+            background: rgba(97, 218, 251, 0.2);
+        }
+        
+        .service-details h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        
+        .service-details p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        
+        .service-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: var(--bg-primary);
+        }
+        
+        .service-status.running {
+            color: var(--success);
+        }
+        
+        .service-status.stopped {
+            color: var(--text-secondary);
+        }
+        
+        .service-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        .service-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .service-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        
+        .service-btn:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .service-btn.start {
+            background: var(--success);
+            border-color: var(--success);
+        }
+        
+        .service-btn.stop {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+        
+        .service-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
         
         /* Terminal */
@@ -257,6 +410,18 @@
             cursor: pointer;
         }
         
+        /* Service Selector */
+        .service-select {
+            padding: 10px 14px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 14px;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+        
         /* File Browser */
         .file-browser {
             background: var(--bg-tertiary);
@@ -277,7 +442,7 @@
         }
         
         .file-list {
-            max-height: 300px;
+            max-height: 350px;
             overflow-y: auto;
         }
         
@@ -322,89 +487,31 @@
             margin-top: 2px;
         }
         
-        /* Spring Boot Status */
-        .spring-status {
-            display: flex;
-            align-items: center;
+        /* Stats Row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
             gap: 12px;
-            padding: 16px;
-            background: var(--bg-tertiary);
-            border-radius: 12px;
             margin-bottom: 16px;
         }
         
-        .spring-status-icon {
-            width: 48px;
-            height: 48px;
-            background: var(--success);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-        }
-        
-        .spring-status-icon.stopped {
-            background: var(--bg-primary);
-        }
-        
-        .spring-status-info h3 {
-            font-size: 16px;
-            margin-bottom: 4px;
-        }
-        
-        .spring-status-info p {
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-        
-        /* Process List */
-        .process-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 14px;
+        .stat-card {
             background: var(--bg-tertiary);
-            border-radius: 10px;
-            margin-bottom: 10px;
+            padding: 16px;
+            border-radius: 12px;
+            text-align: center;
         }
         
-        .process-info {
-            flex: 1;
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent);
         }
         
-        .process-name {
-            font-weight: 500;
-            margin-bottom: 4px;
-        }
-        
-        .process-status {
-            font-size: 12px;
-            color: var(--success);
-        }
-        
-        .process-status.stopped {
+        .stat-label {
+            font-size: 11px;
             color: var(--text-secondary);
-        }
-        
-        .process-actions {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .process-btn {
-            padding: 8px 12px;
-            background: var(--bg-primary);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            color: var(--text-primary);
-            font-size: 12px;
-            cursor: pointer;
-        }
-        
-        .process-btn.stop {
-            color: var(--danger);
-            border-color: var(--danger);
+            margin-top: 4px;
         }
         
         /* Modal */
@@ -425,7 +532,7 @@
             display: flex;
             align-items: flex-start;
             justify-content: center;
-            padding-top: 60px;
+            padding-top: 40px;
         }
         
         .modal {
@@ -434,6 +541,9 @@
             width: 100%;
             max-width: 500px;
             border: 1px solid var(--border);
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
         }
         
         .modal-header {
@@ -462,6 +572,8 @@
         
         .modal-body {
             padding: 20px;
+            overflow-y: auto;
+            flex: 1;
         }
         
         .modal-footer {
@@ -547,28 +659,6 @@
             display: block;
         }
         
-        /* Git Status */
-        .git-info {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 14px;
-            background: var(--bg-tertiary);
-            border-radius: 10px;
-            margin-bottom: 16px;
-        }
-        
-        .git-branch {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            background: var(--bg-primary);
-            border-radius: 6px;
-            font-size: 13px;
-            font-family: monospace;
-        }
-        
         /* Toast Notification */
         .toast {
             position: fixed;
@@ -599,22 +689,6 @@
             color: var(--danger);
         }
         
-        /* Command History */
-        .history-item {
-            padding: 12px;
-            background: var(--bg-tertiary);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            cursor: pointer;
-            font-family: monospace;
-            font-size: 13px;
-            transition: background 0.2s;
-        }
-        
-        .history-item:hover {
-            background: var(--border);
-        }
-        
         /* Loading */
         .loading {
             display: flex;
@@ -635,6 +709,44 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        /* Logs viewer */
+        .log-viewer {
+            background: var(--bg-primary);
+            border-radius: 10px;
+            padding: 14px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        /* Profile selector */
+        .profile-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .profile-btn {
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .profile-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -642,11 +754,14 @@
     <header class="header">
         <div class="header-title">
             <div class="header-icon">⌘</div>
-            <h1>Cursor Remote</h1>
+            <div>
+                <h1>Cursor Remote</h1>
+                <div class="header-subtitle">Multi-Service Control</div>
+            </div>
         </div>
         <div class="status-indicator">
             <div class="status-dot"></div>
-            <span>Connected</span>
+            <span id="service-count">0 services</span>
         </div>
     </header>
     
@@ -654,6 +769,22 @@
     <main class="main-content">
         <!-- Dashboard Tab -->
         <div id="tab-dashboard" class="tabs active">
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-value" id="running-count">0</div>
+                    <div class="stat-label">Running</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="microservices-count">0</div>
+                    <div class="stat-label">Microservices</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="frontends-count">0</div>
+                    <div class="stat-label">Frontends</div>
+                </div>
+            </div>
+            
             <!-- Quick Actions -->
             <section class="section">
                 <div class="section-header">
@@ -662,56 +793,84 @@
                         Quick Actions
                     </div>
                 </div>
+                <div class="profile-selector">
+                    <button class="profile-btn active" data-profile="default">Default</button>
+                    <button class="profile-btn" data-profile="dev">Dev</button>
+                    <button class="profile-btn" data-profile="local">Local</button>
+                </div>
                 <div class="quick-actions">
-                    <button class="action-btn success" onclick="springBootStart()">
+                    <button class="action-btn success" onclick="startAllServices()">
                         <span class="action-icon">🚀</span>
-                        <span class="action-label">Start Spring Boot</span>
+                        <span class="action-label">Start All Services</span>
                     </button>
-                    <button class="action-btn danger" onclick="springBootStop()">
+                    <button class="action-btn danger" onclick="stopAllServices()">
                         <span class="action-icon">⏹️</span>
-                        <span class="action-label">Stop Spring Boot</span>
+                        <span class="action-label">Stop All Services</span>
                     </button>
                     <button class="action-btn primary" onclick="openCursor()">
                         <span class="action-icon">📝</span>
                         <span class="action-label">Open Cursor</span>
                     </button>
-                    <button class="action-btn" onclick="gitStatus()">
-                        <span class="action-icon">📊</span>
-                        <span class="action-label">Git Status</span>
+                    <button class="action-btn" onclick="refreshServices()">
+                        <span class="action-icon">🔄</span>
+                        <span class="action-label">Refresh Services</span>
                     </button>
                 </div>
             </section>
             
-            <!-- Spring Boot Status -->
+            <!-- Microservices -->
             <section class="section">
                 <div class="section-header">
                     <div class="section-title">
                         <span class="section-icon">🌱</span>
-                        Spring Boot Status
+                        Spring Boot Microservices
                     </div>
-                    <button class="process-btn" onclick="refreshSpringStatus()">Refresh</button>
                 </div>
-                <div id="spring-status-container">
-                    <div class="spring-status">
-                        <div class="spring-status-icon stopped" id="spring-icon">🌱</div>
-                        <div class="spring-status-info">
-                            <h3 id="spring-status-text">Checking...</h3>
-                            <p id="spring-status-detail">Loading status</p>
-                        </div>
-                    </div>
+                <div class="service-grid" id="microservices-list">
+                    <div class="loading"><div class="spinner"></div></div>
                 </div>
             </section>
             
-            <!-- Running Processes -->
+            <!-- Frontends -->
             <section class="section">
                 <div class="section-header">
                     <div class="section-title">
-                        <span class="section-icon">⚙️</span>
-                        Running Processes
+                        <span class="section-icon">⚛️</span>
+                        Frontend Applications
                     </div>
                 </div>
-                <div id="process-list">
-                    <p style="color: var(--text-secondary); font-size: 14px;">No processes running</p>
+                <div class="service-grid" id="frontends-list">
+                    <div class="loading"><div class="spinner"></div></div>
+                </div>
+            </section>
+        </div>
+        
+        <!-- Services Tab -->
+        <div id="tab-services" class="tabs">
+            <section class="section">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="section-icon">📊</span>
+                        Service Logs
+                    </div>
+                </div>
+                <select class="service-select" id="log-service-select" onchange="loadServiceLogs()">
+                    <option value="">Select a service...</option>
+                </select>
+                <div class="terminal-container">
+                    <div class="terminal-header">
+                        <div class="terminal-dots">
+                            <div class="terminal-dot red"></div>
+                            <div class="terminal-dot yellow"></div>
+                            <div class="terminal-dot green"></div>
+                        </div>
+                        <span style="font-size: 12px; color: var(--text-secondary);" id="log-service-name">Service Logs</span>
+                    </div>
+                    <div class="terminal-output log-viewer" id="service-logs">Select a service to view logs...</div>
+                </div>
+                <div style="margin-top: 12px; display: flex; gap: 8px;">
+                    <button class="service-btn" onclick="loadServiceLogs()">🔄 Refresh</button>
+                    <button class="service-btn" onclick="clearServiceLogs()">🗑️ Clear</button>
                 </div>
             </section>
         </div>
@@ -724,8 +883,11 @@
                         <span class="section-icon">💻</span>
                         Terminal
                     </div>
-                    <button class="process-btn" onclick="clearTerminal()">Clear</button>
+                    <button class="service-btn" onclick="clearTerminal()">Clear</button>
                 </div>
+                <select class="service-select" id="terminal-cwd-select" onchange="updateTerminalCwd()">
+                    <option value="{{ workspace_path }}">Workspace Root</option>
+                </select>
                 <div class="terminal-container">
                     <div class="terminal-header">
                         <div class="terminal-dots">
@@ -747,19 +909,6 @@ Type commands below and press Enter or tap Send
                     </div>
                 </div>
             </section>
-            
-            <!-- Command History -->
-            <section class="section">
-                <div class="section-header">
-                    <div class="section-title">
-                        <span class="section-icon">📜</span>
-                        Recent Commands
-                    </div>
-                </div>
-                <div id="command-history">
-                    <p style="color: var(--text-secondary); font-size: 14px;">No command history yet</p>
-                </div>
-            </section>
         </div>
         
         <!-- Files Tab -->
@@ -771,10 +920,13 @@ Type commands below and press Enter or tap Send
                         File Browser
                     </div>
                 </div>
+                <select class="service-select" id="file-service-select" onchange="navigateToService()">
+                    <option value="{{ workspace_path }}">Workspace Root</option>
+                </select>
                 <div class="file-browser">
                     <div class="file-path" id="current-path">
                         <span>📍</span>
-                        <span id="path-display">{{ project_path }}</span>
+                        <span id="path-display">{{ workspace_path }}</span>
                     </div>
                     <div class="file-list" id="file-list">
                         <div class="loading">
@@ -795,13 +947,21 @@ Type commands below and press Enter or tap Send
                     </div>
                 </div>
                 <div style="padding: 10px 0;">
-                    <div class="git-info">
-                        <span>📍 Project Path:</span>
-                        <code style="color: var(--accent);">{{ project_path }}</code>
+                    <div class="stat-card" style="text-align: left; margin-bottom: 12px;">
+                        <div style="font-size: 12px; color: var(--text-secondary);">Workspace</div>
+                        <div style="font-size: 14px; font-family: monospace; margin-top: 4px;">{{ workspace_path }}</div>
                     </div>
+                    <button class="action-btn" style="width: 100%; margin-bottom: 12px;" onclick="detectServices()">
+                        <span class="action-icon">🔍</span>
+                        <span class="action-label">Re-detect Services</span>
+                    </button>
                     <button class="action-btn" style="width: 100%; margin-bottom: 12px;" onclick="showLogs()">
                         <span class="action-icon">📋</span>
                         <span class="action-label">View Server Logs</span>
+                    </button>
+                    <button class="action-btn" style="width: 100%; margin-bottom: 12px;" onclick="checkDocker()">
+                        <span class="action-icon">🐳</span>
+                        <span class="action-label">Docker Status</span>
                     </button>
                     <a href="/logout" class="action-btn danger" style="width: 100%; text-align: center;">
                         <span class="action-icon">🚪</span>
@@ -817,6 +977,10 @@ Type commands below and press Enter or tap Send
         <button class="nav-item active" onclick="showTab('dashboard')">
             <span class="nav-icon">🏠</span>
             <span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-item" onclick="showTab('services')">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Logs</span>
         </button>
         <button class="nav-item" onclick="showTab('terminal')">
             <span class="nav-icon">💻</span>
@@ -845,23 +1009,8 @@ Type commands below and press Enter or tap Send
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="process-btn" onclick="closeEditor()">Cancel</button>
+                <button class="service-btn" onclick="closeEditor()">Cancel</button>
                 <button class="terminal-send" onclick="saveFile()">Save</button>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Process Output Modal -->
-    <div class="modal-overlay" id="output-modal">
-        <div class="modal">
-            <div class="modal-header">
-                <span class="modal-title" id="output-title">Process Output</span>
-                <button class="modal-close" onclick="closeOutput()">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="terminal-container">
-                    <div class="terminal-output" id="process-output" style="max-height: 400px;"></div>
-                </div>
             </div>
         </div>
     </div>
@@ -871,9 +1020,21 @@ Type commands below and press Enter or tap Send
     
     <script>
         // State
-        let currentPath = '{{ project_path }}';
+        let services = { microservices: [], frontends: [] };
+        let currentPath = '{{ workspace_path }}';
+        let workspacePath = '{{ workspace_path }}';
         let editingFile = null;
-        let commandHistory = [];
+        let selectedProfile = 'default';
+        let terminalCwd = workspacePath;
+        
+        // Profile selector
+        document.querySelectorAll('.profile-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.profile-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedProfile = btn.dataset.profile;
+            });
+        });
         
         // Tab Navigation
         function showTab(name) {
@@ -912,7 +1073,212 @@ Type commands below and press Enter or tap Send
             }
         }
         
+        // Load Services
+        async function loadServices() {
+            const result = await api('/services');
+            services = result;
+            updateServiceDropdowns();
+            await refreshServicesStatus();
+        }
+        
+        async function refreshServicesStatus() {
+            const result = await api('/services/status');
+            
+            let runningCount = 0;
+            const statusMap = {};
+            result.services.forEach(s => {
+                statusMap[s.name] = s;
+                if (s.status === 'running') runningCount++;
+            });
+            
+            // Update stats
+            document.getElementById('running-count').textContent = runningCount;
+            document.getElementById('microservices-count').textContent = services.microservices?.length || 0;
+            document.getElementById('frontends-count').textContent = services.frontends?.length || 0;
+            document.getElementById('service-count').textContent = `${runningCount}/${result.services.length} running`;
+            
+            // Render microservices
+            renderServiceList('microservices-list', services.microservices || [], statusMap, 'spring');
+            
+            // Render frontends
+            renderServiceList('frontends-list', services.frontends || [], statusMap, 'react');
+        }
+        
+        function renderServiceList(containerId, serviceList, statusMap, iconType) {
+            const container = document.getElementById(containerId);
+            
+            if (!serviceList.length) {
+                container.innerHTML = '<p style="color: var(--text-secondary); font-size: 14px; padding: 10px;">No services detected</p>';
+                return;
+            }
+            
+            container.innerHTML = serviceList.map(svc => {
+                const status = statusMap[svc.name] || { status: 'unknown' };
+                const isRunning = status.status === 'running';
+                const icon = iconType === 'spring' ? '🌱' : '⚛️';
+                
+                return `
+                    <div class="service-card ${svc.type} ${isRunning ? 'running' : ''}">
+                        <div class="service-header">
+                            <div class="service-info">
+                                <div class="service-icon ${iconType}">${icon}</div>
+                                <div class="service-details">
+                                    <h3>${svc.name}</h3>
+                                    <p>Port ${svc.port} • ${svc.type}</p>
+                                </div>
+                            </div>
+                            <div class="service-status ${isRunning ? 'running' : 'stopped'}">
+                                <div class="service-status-dot"></div>
+                                ${isRunning ? 'Running' : 'Stopped'}
+                            </div>
+                        </div>
+                        <div class="service-actions">
+                            ${isRunning ? `
+                                <button class="service-btn stop" onclick="stopService('${svc.name}')">⏹️ Stop</button>
+                                <button class="service-btn" onclick="restartService('${svc.name}')">🔄 Restart</button>
+                                <button class="service-btn" onclick="viewLogs('${svc.name}')">📋 Logs</button>
+                            ` : `
+                                <button class="service-btn start" onclick="startService('${svc.name}')">▶️ Start</button>
+                                <button class="service-btn" onclick="buildService('${svc.name}')">🔨 Build</button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function updateServiceDropdowns() {
+            const allServices = [...(services.microservices || []), ...(services.frontends || [])];
+            
+            // Log service select
+            const logSelect = document.getElementById('log-service-select');
+            logSelect.innerHTML = '<option value="">Select a service...</option>' +
+                allServices.map(s => `<option value="${s.name}">${s.name} (${s.type})</option>`).join('');
+            
+            // Terminal CWD select
+            const terminalSelect = document.getElementById('terminal-cwd-select');
+            terminalSelect.innerHTML = `<option value="${workspacePath}">Workspace Root</option>` +
+                allServices.map(s => `<option value="${s.path}">${s.name}</option>`).join('');
+            
+            // File browser select
+            const fileSelect = document.getElementById('file-service-select');
+            fileSelect.innerHTML = `<option value="${workspacePath}">Workspace Root</option>` +
+                allServices.map(s => `<option value="${s.path}">${s.name}</option>`).join('');
+        }
+        
+        // Service Actions
+        async function startService(name) {
+            showToast(`Starting ${name}...`, 'info');
+            const result = await api(`/service/${name}/start`, {
+                method: 'POST',
+                body: JSON.stringify({ profile: selectedProfile })
+            });
+            
+            if (result.success) {
+                showToast(`${name} starting...`, 'success');
+                setTimeout(refreshServicesStatus, 2000);
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        async function stopService(name) {
+            showToast(`Stopping ${name}...`, 'info');
+            const result = await api(`/service/${name}/stop`, { method: 'POST' });
+            
+            if (result.success) {
+                showToast(`${name} stopped`, 'success');
+                refreshServicesStatus();
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        async function restartService(name) {
+            showToast(`Restarting ${name}...`, 'info');
+            const result = await api(`/service/${name}/restart`, { method: 'POST' });
+            
+            if (result.success) {
+                showToast(`${name} restarting...`, 'success');
+                setTimeout(refreshServicesStatus, 3000);
+            } else {
+                showToast(result.error, 'error');
+            }
+        }
+        
+        async function buildService(name) {
+            showToast(`Building ${name}... This may take a while.`, 'info');
+            const result = await api(`/service/${name}/build`, { method: 'POST' });
+            
+            if (result.success) {
+                showToast(`${name} built successfully!`, 'success');
+            } else {
+                showToast(`Build failed: ${result.error || 'Check logs'}`, 'error');
+            }
+        }
+        
+        function viewLogs(name) {
+            document.getElementById('log-service-select').value = name;
+            showTab('services');
+            document.querySelector('[onclick="showTab(\'services\')"]').classList.add('active');
+            loadServiceLogs();
+        }
+        
+        async function loadServiceLogs() {
+            const name = document.getElementById('log-service-select').value;
+            if (!name) return;
+            
+            document.getElementById('log-service-name').textContent = name;
+            const result = await api(`/service/${name}/output`);
+            
+            const logsEl = document.getElementById('service-logs');
+            logsEl.textContent = result.output || 'No output yet...';
+            logsEl.scrollTop = logsEl.scrollHeight;
+        }
+        
+        function clearServiceLogs() {
+            document.getElementById('service-logs').textContent = '';
+        }
+        
+        // Bulk Actions
+        async function startAllServices() {
+            showToast('Starting all services...', 'info');
+            const result = await api('/services/start-all', {
+                method: 'POST',
+                body: JSON.stringify({ 
+                    include_frontend: true,
+                    profile: selectedProfile 
+                })
+            });
+            
+            const successful = result.results.filter(r => r.success).length;
+            showToast(`Started ${successful}/${result.results.length} services`, 'success');
+            setTimeout(refreshServicesStatus, 3000);
+        }
+        
+        async function stopAllServices() {
+            showToast('Stopping all services...', 'info');
+            const result = await api('/services/stop-all', { method: 'POST' });
+            showToast('All services stopped', 'success');
+            refreshServicesStatus();
+        }
+        
+        async function refreshServices() {
+            showToast('Refreshing services...', 'info');
+            await api('/services/refresh', { method: 'POST' });
+            await loadServices();
+            showToast('Services refreshed', 'success');
+        }
+        
+        async function detectServices() {
+            await refreshServices();
+        }
+        
         // Terminal
+        function updateTerminalCwd() {
+            terminalCwd = document.getElementById('terminal-cwd-select').value;
+        }
+        
         function executeCommand() {
             const input = document.getElementById('terminal-input');
             const command = input.value.trim();
@@ -923,12 +1289,9 @@ Type commands below and press Enter or tap Send
             output.innerHTML += `<span style="color: var(--success);">$</span> ${command}\n`;
             output.scrollTop = output.scrollHeight;
             
-            commandHistory.unshift(command);
-            updateCommandHistory();
-            
             api('/execute', {
                 method: 'POST',
-                body: JSON.stringify({ command, cwd: currentPath })
+                body: JSON.stringify({ command, cwd: terminalCwd })
             }).then(result => {
                 if (result.success) {
                     output.innerHTML += result.output + '\n';
@@ -947,24 +1310,12 @@ Type commands below and press Enter or tap Send
             document.getElementById('terminal-output').innerHTML = '';
         }
         
-        function updateCommandHistory() {
-            const container = document.getElementById('command-history');
-            if (commandHistory.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-secondary); font-size: 14px;">No command history yet</p>';
-                return;
-            }
-            container.innerHTML = commandHistory.slice(0, 10).map(cmd => 
-                `<div class="history-item" onclick="runHistoryCommand('${cmd.replace(/'/g, "\\'")}')">${cmd}</div>`
-            ).join('');
-        }
-        
-        function runHistoryCommand(cmd) {
-            document.getElementById('terminal-input').value = cmd;
-            showTab('terminal');
-            document.querySelector('[onclick="showTab(\'terminal\')"]').classList.add('active');
-        }
-        
         // File Browser
+        function navigateToService() {
+            const path = document.getElementById('file-service-select').value;
+            loadFiles(path);
+        }
+        
         async function loadFiles(path) {
             const result = await api('/files/list?path=' + encodeURIComponent(path));
             if (result.error) {
@@ -977,7 +1328,6 @@ Type commands below and press Enter or tap Send
             
             let html = '';
             
-            // Parent directory
             if (result.parent !== result.path) {
                 html += `
                     <div class="file-item" onclick="loadFiles('${result.parent}')">
@@ -1015,9 +1365,10 @@ Type commands below and press Enter or tap Send
             const ext = name.split('.').pop().toLowerCase();
             const icons = {
                 'java': '☕', 'kt': '🟣', 'py': '🐍', 'js': '🟨', 'ts': '🔷',
-                'html': '🌐', 'css': '🎨', 'json': '📋', 'xml': '📄', 'yml': '⚙️',
-                'yaml': '⚙️', 'md': '📝', 'txt': '📄', 'sh': '💻', 'gradle': '🐘',
-                'properties': '🔧', 'sql': '🗃️'
+                'jsx': '⚛️', 'tsx': '⚛️', 'html': '🌐', 'css': '🎨', 'scss': '🎨',
+                'json': '📋', 'xml': '📄', 'yml': '⚙️', 'yaml': '⚙️', 'md': '📝',
+                'txt': '📄', 'sh': '💻', 'gradle': '🐘', 'properties': '🔧', 'sql': '🗃️',
+                'env': '🔐', 'dockerfile': '🐳', 'lock': '🔒'
             };
             return icons[ext] || '📄';
         }
@@ -1063,117 +1414,15 @@ Type commands below and press Enter or tap Send
             }
         }
         
-        // Spring Boot
-        async function refreshSpringStatus() {
-            const result = await api('/spring-boot/status');
-            const icon = document.getElementById('spring-icon');
-            const text = document.getElementById('spring-status-text');
-            const detail = document.getElementById('spring-status-detail');
-            
-            if (result.running) {
-                icon.classList.remove('stopped');
-                text.textContent = 'Running';
-                detail.textContent = result.processes.length + ' process(es) active';
-            } else {
-                icon.classList.add('stopped');
-                text.textContent = 'Stopped';
-                detail.textContent = 'No Spring Boot processes detected';
-            }
-        }
-        
-        async function springBootStart() {
-            showToast('Starting Spring Boot...', 'info');
-            const result = await api('/spring-boot/start', {
-                method: 'POST',
-                body: JSON.stringify({ path: currentPath })
-            });
-            
-            if (result.success) {
-                showToast('Spring Boot starting...', 'success');
-                setTimeout(refreshSpringStatus, 3000);
-                refreshProcessList();
-            } else {
-                showToast(result.error, 'error');
-            }
-        }
-        
-        async function springBootStop() {
-            const result = await api('/spring-boot/stop', { method: 'POST' });
-            if (result.success) {
-                showToast('Spring Boot stopped', 'success');
-                refreshSpringStatus();
-            } else {
-                showToast(result.error, 'error');
-            }
-        }
-        
-        // Processes
-        async function refreshProcessList() {
-            const result = await api('/process/list');
-            const container = document.getElementById('process-list');
-            
-            if (result.processes.length === 0) {
-                container.innerHTML = '<p style="color: var(--text-secondary); font-size: 14px;">No processes running</p>';
-                return;
-            }
-            
-            container.innerHTML = result.processes.map(p => `
-                <div class="process-item">
-                    <div class="process-info">
-                        <div class="process-name">${p.name}</div>
-                        <div class="process-status ${p.running ? '' : 'stopped'}">
-                            ${p.running ? '● Running' : '○ Stopped'}
-                        </div>
-                    </div>
-                    <div class="process-actions">
-                        <button class="process-btn" onclick="viewProcessOutput('${p.id}', '${p.name}')">View</button>
-                        ${p.running ? `<button class="process-btn stop" onclick="stopProcess('${p.id}')">Stop</button>` : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
-        
-        async function viewProcessOutput(id, name) {
-            const result = await api('/process/' + id + '/output');
-            document.getElementById('output-title').textContent = name;
-            document.getElementById('process-output').textContent = result.output || 'No output';
-            document.getElementById('output-modal').classList.add('active');
-        }
-        
-        function closeOutput() {
-            document.getElementById('output-modal').classList.remove('active');
-        }
-        
-        async function stopProcess(id) {
-            await api('/process/' + id + '/stop', { method: 'POST' });
-            showToast('Process stopped', 'success');
-            refreshProcessList();
-        }
-        
-        // Cursor
+        // Other actions
         async function openCursor() {
             const result = await api('/cursor/open', {
                 method: 'POST',
-                body: JSON.stringify({ path: currentPath })
+                body: JSON.stringify({ path: workspacePath })
             });
             showToast(result.success ? 'Opened in Cursor' : result.error, result.success ? 'success' : 'error');
         }
         
-        // Git
-        async function gitStatus() {
-            const result = await api('/git/status?path=' + encodeURIComponent(currentPath));
-            if (result.error) {
-                showToast(result.error, 'error');
-                return;
-            }
-            
-            const output = document.getElementById('terminal-output');
-            output.innerHTML += `<span style="color: var(--accent);">Git Status (${result.branch})</span>\n`;
-            output.innerHTML += result.clean ? 'Working tree clean\n' : result.status + '\n';
-            showTab('terminal');
-        }
-        
-        // Logs
         async function showLogs() {
             const result = await api('/logs');
             const output = document.getElementById('terminal-output');
@@ -1186,11 +1435,34 @@ Type commands below and press Enter or tap Send
             showTab('terminal');
         }
         
+        async function checkDocker() {
+            const result = await api('/docker/status');
+            const output = document.getElementById('terminal-output');
+            output.innerHTML = '<span style="color: var(--accent);">Docker Containers</span>\n\n';
+            
+            if (result.error) {
+                output.innerHTML += `<span style="color: var(--danger);">${result.error}</span>\n`;
+            } else if (result.containers.length === 0) {
+                output.innerHTML += 'No containers running\n';
+            } else {
+                result.containers.forEach(c => {
+                    output.innerHTML += `${c.name}\t${c.status}\t${c.ports}\n`;
+                });
+            }
+            showTab('terminal');
+        }
+        
         // Initialize
-        refreshSpringStatus();
-        refreshProcessList();
-        setInterval(refreshProcessList, 10000);
-        setInterval(refreshSpringStatus, 15000);
+        loadServices();
+        setInterval(refreshServicesStatus, 10000);
+        
+        // Auto-refresh logs if viewing
+        setInterval(() => {
+            const name = document.getElementById('log-service-select').value;
+            if (name && document.getElementById('tab-services').classList.contains('active')) {
+                loadServiceLogs();
+            }
+        }, 5000);
     </script>
 </body>
 </html>

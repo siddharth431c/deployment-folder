@@ -1,123 +1,196 @@
-# Cursor Remote Agent
+# Cursor Remote Agent - Multi-Microservice Edition
 
-Control your Cursor IDE and Spring Boot development from your iPhone. A web-based remote control server that runs on your Mac and provides a mobile-friendly interface for development tasks.
+Control your entire microservices architecture and React frontend from your iPhone. A web-based remote control server that runs on your Mac and provides a mobile-friendly interface for managing multiple Spring Boot services and frontend applications.
 
 ## Features
 
-- **Mobile-Optimized UI** - Beautiful, responsive interface designed for iPhone
-- **Terminal Access** - Execute shell commands remotely
-- **File Browser** - Browse, view, and edit files on your Mac
-- **Spring Boot Integration** - Start, stop, and monitor your Spring Boot application
-- **Process Management** - View and control running processes
-- **Git Integration** - Check git status and manage your repository
-- **Cursor IDE Control** - Open files directly in Cursor
+### Multi-Service Management
+- **Auto-Detection** - Automatically discovers Spring Boot microservices and React/Vue/Next.js frontends
+- **Service Dashboard** - Real-time status of all services with running/stopped indicators
+- **Individual Control** - Start, stop, restart, and build each service independently
+- **Bulk Operations** - Start or stop all services with one tap
+- **Profile Support** - Launch services with different Spring profiles (dev, local, etc.)
+
+### Mobile-Optimized Interface
+- **iPhone-First Design** - Beautiful, responsive UI optimized for mobile
+- **Quick Actions** - One-tap buttons for common operations
+- **Live Statistics** - See running service count at a glance
+- **Service Logs** - View real-time logs from any service
+
+### Development Tools
+- **Terminal Access** - Execute shell commands in any service directory
+- **File Browser** - Browse, view, and edit files across all projects
+- **Git Integration** - Check repository status
+- **Docker Status** - View running Docker containers
 
 ## Quick Start
 
 ### 1. Install Dependencies
 
-On your Mac, open Terminal and run:
-
 ```bash
-cd /path/to/cursor-remote-agent
+cd cursor-remote-agent
 pip3 install -r requirements.txt
-```
-
-Or if you use a virtual environment:
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
 ```
 
 ### 2. Start the Server
 
+Point it to your workspace containing all microservices:
+
 ```bash
-python3 server.py --project /path/to/your/spring-boot-project --password your-secure-password
+python3 server.py --workspace /path/to/your/workspace --password your-secure-password
 ```
 
-**Options:**
-- `--project` - Path to your Spring Boot project (default: home directory)
-- `--password` - Password for authentication (default: cursor123)
-- `--port` - Port to run the server on (default: 8765)
-- `--host` - Host to bind to (default: 0.0.0.0)
+The server will automatically scan and detect:
+- Spring Boot projects (Maven or Gradle)
+- React/Next.js/Vue frontends
+- Port configurations from application.properties/yml
 
-### 3. Find Your Mac's IP Address
+### 3. Connect from iPhone
 
-In Terminal, run:
+1. Ensure your iPhone and Mac are on the same WiFi
+2. Find your Mac's IP: `ifconfig | grep "inet "`
+3. Open Safari: `http://YOUR_MAC_IP:8765`
+4. Enter your password
 
-```bash
-ifconfig | grep "inet " | grep -v 127.0.0.1
+## Project Structure Example
+
+The agent works great with a typical microservices structure:
+
+```
+workspace/
+├── user-service/           # Spring Boot microservice (port 8081)
+│   ├── pom.xml
+│   └── src/
+├── order-service/          # Spring Boot microservice (port 8082)
+│   ├── pom.xml
+│   └── src/
+├── payment-service/        # Spring Boot microservice (port 8083)
+│   ├── build.gradle
+│   └── src/
+├── api-gateway/            # Spring Boot gateway (port 8080)
+│   ├── pom.xml
+│   └── src/
+└── frontend/               # React frontend (port 3000)
+    ├── package.json
+    └── src/
 ```
 
-Look for an IP like `192.168.1.xxx` on your local network.
+## Configuration
 
-### 4. Connect from Your iPhone
+### Command Line Options
 
-1. Make sure your iPhone is on the same WiFi network as your Mac
-2. Open Safari on your iPhone
-3. Navigate to: `http://YOUR_MAC_IP:8765`
-4. Enter the password you set when starting the server
-5. Start developing remotely!
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--workspace` | Home directory | Root path containing all projects |
+| `--password` | cursor123 | Authentication password |
+| `--port` | 8765 | Server port |
+| `--host` | 0.0.0.0 | Bind address |
 
-## Usage Guide
-
-### Dashboard
-
-The main dashboard shows:
-- **Quick Actions** - One-tap buttons for common tasks
-- **Spring Boot Status** - Real-time status of your application
-- **Running Processes** - All background processes you've started
-
-### Terminal
-
-Execute any shell command:
-- Type commands and tap "Send"
-- View real-time output
-- Access command history with quick-tap rerun
-
-Common commands:
-- `./mvnw clean install` - Build your project
-- `./mvnw test` - Run tests
-- `git pull` - Pull latest changes
-- `tail -f logs/application.log` - View logs
-
-### File Browser
-
-- Navigate your project directory
-- Tap folders to enter them
-- Tap files to view/edit
-- Edit and save files directly from your phone
-
-### Spring Boot Controls
-
-- **Start** - Automatically detects Maven/Gradle and starts your app
-- **Stop** - Gracefully stops the running application
-- **Status** - Shows if the app is running and on which port
-
-## Environment Variables
-
-You can also configure the server using environment variables:
+### Environment Variables
 
 ```bash
-export PROJECT_PATH=/path/to/project
+export WORKSPACE_PATH=/path/to/workspace
 export AGENT_PASSWORD=mysecurepassword
 export AGENT_PORT=8765
-export AGENT_HOST=0.0.0.0
-
 python3 server.py
 ```
 
-## Running as a Background Service
+### Custom Service Configuration (Optional)
+
+Create `services.json` in your workspace root for manual configuration:
+
+```json
+{
+  "microservices": [
+    {
+      "name": "user-service",
+      "path": "/path/to/user-service",
+      "type": "spring-boot",
+      "build_tool": "maven",
+      "port": 8081,
+      "start_command": "./mvnw spring-boot:run",
+      "build_command": "./mvnw clean package -DskipTests"
+    }
+  ],
+  "frontends": [
+    {
+      "name": "web-app",
+      "path": "/path/to/frontend",
+      "type": "react",
+      "port": 3000,
+      "start_command": "npm run dev",
+      "build_command": "npm run build",
+      "install_command": "npm install"
+    }
+  ]
+}
+```
+
+## Mobile Interface Guide
+
+### Dashboard Tab
+- **Stats Row** - Shows running services, total microservices, and frontends count
+- **Profile Selector** - Choose Spring profile before starting services
+- **Quick Actions** - Start All, Stop All, Open Cursor, Refresh
+- **Microservices List** - Each service with status and control buttons
+- **Frontends List** - React/Vue apps with their controls
+
+### Logs Tab
+- Select any running service to view its live output
+- Auto-refreshes every 5 seconds
+- Useful for debugging startup issues
+
+### Terminal Tab
+- Execute commands in any service directory
+- Dropdown to select working directory
+- Full command output with scrolling
+
+### Files Tab
+- Browse any service's files
+- Quick navigation dropdown
+- Tap to edit files with built-in editor
+
+## API Reference
+
+### Service Management
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/services` | GET | List all configured services |
+| `/api/services/status` | GET | Get status of all services |
+| `/api/services/refresh` | POST | Re-detect services |
+| `/api/services/start-all` | POST | Start all services |
+| `/api/services/stop-all` | POST | Stop all services |
+
+### Individual Service Control
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/service/{name}/start` | POST | Start a service |
+| `/api/service/{name}/stop` | POST | Stop a service |
+| `/api/service/{name}/restart` | POST | Restart a service |
+| `/api/service/{name}/build` | POST | Build a service |
+| `/api/service/{name}/output` | GET | Get service logs |
+
+### Utility Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/execute` | POST | Execute shell command |
+| `/api/files/list` | GET | List directory |
+| `/api/files/read` | GET | Read file |
+| `/api/files/write` | POST | Write file |
+| `/api/docker/status` | GET | Docker container status |
+
+## Running as Background Service
 
 ### Using nohup
 
 ```bash
-nohup python3 server.py --project /path/to/project --password mypassword > agent.log 2>&1 &
+nohup python3 server.py --workspace /path/to/workspace --password mypassword > agent.log 2>&1 &
 ```
 
-### Using launchd (Recommended for Mac)
+### Using launchd (macOS)
 
 Create `~/Library/LaunchAgents/com.cursor.remote-agent.plist`:
 
@@ -132,8 +205,8 @@ Create `~/Library/LaunchAgents/com.cursor.remote-agent.plist`:
     <array>
         <string>/usr/bin/python3</string>
         <string>/path/to/cursor-remote-agent/server.py</string>
-        <string>--project</string>
-        <string>/path/to/your/spring-boot-project</string>
+        <string>--workspace</string>
+        <string>/path/to/your/workspace</string>
         <string>--password</string>
         <string>your-password</string>
     </array>
@@ -150,53 +223,39 @@ Load it:
 launchctl load ~/Library/LaunchAgents/com.cursor.remote-agent.plist
 ```
 
-## Security Considerations
-
-1. **Network Security** - Only accessible on your local network by default
-2. **Password Protection** - All endpoints require authentication
-3. **Session Management** - Sessions expire after 1 hour of inactivity
-4. **HTTPS** - For production use, consider adding SSL/TLS
-
-### Adding HTTPS (Optional)
-
-For secure connections, you can use a reverse proxy like nginx or run with SSL directly.
-
 ## Troubleshooting
+
+### Services not detected
+
+1. Check that `pom.xml` or `build.gradle` contains spring-boot dependencies
+2. Ensure `package.json` has react/vue/next in dependencies
+3. Try the "Re-detect Services" button in Settings
+
+### Service won't start
+
+1. Check if the port is already in use: `lsof -i :PORT`
+2. Ensure build wrapper is executable: `chmod +x mvnw` or `chmod +x gradlew`
+3. View service logs for errors
 
 ### Can't connect from iPhone
 
-1. Ensure both devices are on the same WiFi network
-2. Check if your Mac's firewall is blocking the port
-3. Verify the server is running: `lsof -i :8765`
+1. Both devices must be on the same WiFi network
+2. Check Mac firewall settings
+3. Verify server is running: `lsof -i :8765`
 
-### Spring Boot won't start
+### Port Detection Issues
 
-1. Check if `pom.xml` or `build.gradle` exists in the project path
-2. Ensure `mvnw` or `gradlew` is executable: `chmod +x mvnw`
-3. View the process output for error details
+The agent looks for ports in:
+- `application.properties`: `server.port=8081`
+- `application.yml`: `server: port: 8081`
+- Frontend `.env` files: `PORT=3000`
 
-### Commands timeout
+## Security Notes
 
-- Increase the timeout in the API call
-- For long-running commands, use the "Start Process" feature instead
-
-## API Reference
-
-The server exposes a REST API that you can also use programmatically:
-
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/status` | GET | Server status |
-| `/api/execute` | POST | Execute a command |
-| `/api/files/list` | GET | List directory contents |
-| `/api/files/read` | GET | Read file contents |
-| `/api/files/write` | POST | Write file contents |
-| `/api/spring-boot/status` | GET | Spring Boot status |
-| `/api/spring-boot/start` | POST | Start Spring Boot |
-| `/api/spring-boot/stop` | POST | Stop Spring Boot |
-| `/api/git/status` | GET | Git repository status |
-| `/api/process/list` | GET | List running processes |
-| `/api/cursor/open` | POST | Open file in Cursor |
+- Only accessible on local network by default
+- All endpoints require authentication
+- Sessions expire after 1 hour of inactivity
+- Consider using HTTPS in production environments
 
 ## License
 
