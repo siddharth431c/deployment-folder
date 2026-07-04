@@ -7,12 +7,14 @@ A web-based remote control server for development tasks
 import os
 import sys
 import json
+import shutil
 import subprocess
 import threading
 import time
 import secrets
 import hashlib
 import signal
+import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 from functools import wraps
@@ -37,6 +39,8 @@ CONFIG = {
     'session_timeout': 3600,  # 1 hour
     'max_output_lines': 500,
     'allowed_commands': None,  # None means all commands allowed
+    'app_url': os.environ.get('APP_URL', ''),
+    'cursor_bin': os.environ.get('CURSOR_BIN', ''),
 }
 
 
@@ -51,6 +55,123 @@ def get_subprocess_env():
 running_processes = {}
 command_history = []
 log_buffer = []
+agent_runs = {}
+agent_prompt_history = []
+
+
+def find_cursor_bin():
+    """Locate the Cursor CLI binary."""
+    if CONFIG.get('cursor_bin') and os.path.isfile(CONFIG['cursor_bin']):
+        return CONFIG['cursor_bin']
+
+    candidates = [
+        os.path.expanduser('~/.local/bin/cursor-agent'),
+        '/Applications/Cursor.app/Contents/Resources/app/bin/cursor',
+        shutil.which('cursor'),
+        shutil.which('cursor-agent'),
+        os.path.expanduser('~/Applications/Cursor.app/Contents/Resources/app/bin/cursor'),
+    ]
+    for path in candidates:
+        if path and os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    return None
+
+
+def build_agent_command(prompt, workspace, mode=None, model=None, force=True):
+    """Build argv for cursor agent CLI."""
+    cursor_bin = find_cursor_bin()
+    if not cursor_bin:
+        return None, 'Cursor CLI not found. Install Cursor or set CURSOR_BIN.'
+
+    # cursor-agent is the agent entrypoint; cursor needs the "agent" subcommand
+    is_agent_bin = cursor_bin.endswith('cursor-agent')
+    cmd = [cursor_bin]
+    if not is_agent_bin:
+        cmd.append('agent')
+
+    cmd.extend([
+        '-p',
+        '--trust',
+        '--workspace', workspace,
+        '--output-format', 'text',
+    ])
+    if force:
+        cmd.append('--force')
+    if mode in ('plan', 'ask'):
+        cmd.extend(['--mode', mode])
+    if model:
+        cmd.extend(['--model', model])
+    cmd.append(prompt)
+    return cmd, None
+
+
+def open_project_in_cursor(path):
+    """Open (or focus) the project folder in the Cursor IDE."""
+    cursor_bin = find_cursor_bin()
+    try:
+        if cursor_bin and not cursor_bin.endswith('cursor-agent'):
+            subprocess.Popen(
+                [cursor_bin, '--reuse-window', path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=get_subprocess_env(),
+            )
+        else:
+            subprocess.Popen(
+                ['open', '-a', 'Cursor', path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                env=get_subprocess_env(),
+            )
+        return True
+    except Exception as e:
+        add_log('warning', f'Could not open Cursor IDE: {e}')
+        return False
+
+
+def inject_prompt_into_cursor_ide(prompt):
+    """Paste a prompt into Cursor's agent/chat input via AppleScript."""
+    # Escape for AppleScript string
+    escaped = (
+        prompt
+        .replace('\\', '\\\\')
+        .replace('"', '\\"')
+        .replace('\n', '\\n')
+    )
+    script = f'''
+    tell application "Cursor"
+        activate
+    end tell
+    delay 0.6
+    tell application "System Events"
+        tell process "Cursor"
+            set frontmost to true
+            -- Open Agent / Composer (Cmd+I)
+            keystroke "i" using {{command down}}
+            delay 0.5
+            -- Select all existing input and replace
+            keystroke "a" using {{command down}}
+            delay 0.1
+            keystroke "{escaped}"
+            delay 0.3
+            -- Submit
+            key code 36
+        end tell
+    end tell
+    '''
+    try:
+        subprocess.run(
+            ['osascript', '-e', script],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=get_subprocess_env(),
+        )
+        return True, None
+    except subprocess.CalledProcessError as e:
+        return False, (e.stderr or str(e)).strip()
+    except Exception as e:
+        return False, str(e)
 
 
 def add_log(level, message):
@@ -82,7 +203,11 @@ def index():
     """Main dashboard - redirect to login if not authenticated"""
     if not session.get('authenticated'):
         return redirect(url_for('login'))
-    return render_template('index.html', project_path=CONFIG['project_path'])
+    return render_template(
+        'index.html',
+        project_path=CONFIG['project_path'],
+        app_url=CONFIG.get('app_url', ''),
+    )
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -580,20 +705,14 @@ def api_logs():
 @app.route('/api/cursor/open', methods=['POST'])
 @require_auth
 def api_cursor_open():
-    """Open a file in Cursor IDE"""
-    data = request.get_json()
-    path = data.get('path')
-    line = data.get('line', 1)
-    
-    if not path:
-        return jsonify({'error': 'No path provided'}), 400
-    
+    """Open a file or folder in Cursor IDE"""
+    data = request.get_json() or {}
+    path = data.get('path') or CONFIG['project_path']
+
     try:
-        # Try to open in Cursor (macOS)
-        cmd = f'open -a "Cursor" "{path}"'
-        subprocess.run(cmd, shell=True, check=True, env=get_subprocess_env())
+        open_project_in_cursor(path)
         add_log('info', f'Opened in Cursor: {path}')
-        return jsonify({'success': True})
+        return jsonify({'success': True, 'path': path})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -604,12 +723,13 @@ def api_cursor_command():
     """Send a command to Cursor via command palette simulation"""
     data = request.get_json()
     command = data.get('command')
-    
+
     if not command:
         return jsonify({'error': 'No command provided'}), 400
-    
+
+    # Escape for AppleScript
+    escaped = command.replace('\\', '\\\\').replace('"', '\\"')
     try:
-        # Use AppleScript to send keyboard shortcuts to Cursor
         script = f'''
         tell application "Cursor"
             activate
@@ -618,16 +738,304 @@ def api_cursor_command():
         tell application "System Events"
             keystroke "p" using {{command down, shift down}}
             delay 0.3
-            keystroke "{command}"
+            keystroke "{escaped}"
             delay 0.2
             key code 36
         end tell
         '''
-        subprocess.run(['osascript', '-e', script], check=True, env=get_subprocess_env())
+        subprocess.run(
+            ['osascript', '-e', script],
+            check=True,
+            capture_output=True,
+            env=get_subprocess_env(),
+        )
         add_log('info', f'Sent Cursor command: {command}')
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/cursor/agent', methods=['POST'])
+@require_auth
+def api_cursor_agent():
+    """Send a prompt to the Cursor agent (CLI) against the project workspace."""
+    data = request.get_json() or {}
+    prompt = (data.get('prompt') or '').strip()
+    workspace = data.get('workspace') or CONFIG['project_path']
+    mode = data.get('mode')  # None | plan | ask
+    model = data.get('model')
+    force = data.get('force', True)
+    open_ide = data.get('open_ide', True)
+    inject_ide = data.get('inject_ide', False)
+    source = data.get('source', 'text')  # text | voice
+
+    if not prompt:
+        return jsonify({'error': 'No prompt provided'}), 400
+
+    if not os.path.isdir(workspace):
+        return jsonify({'error': f'Workspace not found: {workspace}'}), 400
+
+    cmd, err = build_agent_command(prompt, workspace, mode=mode, model=model, force=force)
+    if err:
+        return jsonify({'error': err}), 500
+
+    if open_ide:
+        open_project_in_cursor(workspace)
+
+    ide_injected = False
+    ide_error = None
+    if inject_ide:
+        ide_injected, ide_error = inject_prompt_into_cursor_ide(prompt)
+
+    run_id = str(uuid.uuid4())
+    started = datetime.now().isoformat()
+
+    try:
+        process = subprocess.Popen(
+            cmd,
+            cwd=workspace,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+            env=get_subprocess_env(),
+        )
+    except Exception as e:
+        add_log('error', f'Failed to start Cursor agent: {e}')
+        return jsonify({'error': f'Failed to start Cursor agent: {e}'}), 500
+
+    agent_runs[run_id] = {
+        'process': process,
+        'prompt': prompt,
+        'workspace': workspace,
+        'mode': mode or 'agent',
+        'source': source,
+        'started': started,
+        'output': [],
+        'command': cmd,
+        'ide_injected': ide_injected,
+        'ide_error': ide_error,
+    }
+
+    def capture_output():
+        try:
+            for line in iter(process.stdout.readline, ''):
+                if run_id in agent_runs:
+                    agent_runs[run_id]['output'].append(line)
+                    if len(agent_runs[run_id]['output']) > 5000:
+                        agent_runs[run_id]['output'].pop(0)
+        finally:
+            process.wait()
+            if run_id in agent_runs:
+                agent_runs[run_id]['finished'] = datetime.now().isoformat()
+                agent_runs[run_id]['return_code'] = process.returncode
+
+    thread = threading.Thread(target=capture_output, daemon=True)
+    thread.start()
+
+    history_entry = {
+        'id': run_id,
+        'prompt': prompt,
+        'workspace': workspace,
+        'mode': mode or 'agent',
+        'source': source,
+        'started': started,
+    }
+    agent_prompt_history.append(history_entry)
+    if len(agent_prompt_history) > 100:
+        agent_prompt_history.pop(0)
+
+    add_log('info', f'Cursor agent started ({run_id}): {prompt[:80]}')
+
+    return jsonify({
+        'success': True,
+        'run_id': run_id,
+        'prompt': prompt,
+        'workspace': workspace,
+        'mode': mode or 'agent',
+        'ide_injected': ide_injected,
+        'ide_error': ide_error,
+        'message': 'Prompt sent to Cursor agent on your Mac',
+    })
+
+
+@app.route('/api/cursor/agent/<run_id>')
+@require_auth
+def api_cursor_agent_status(run_id):
+    """Get status and output for an agent run."""
+    run = agent_runs.get(run_id)
+    if not run:
+        # Fall back to history-only entry
+        for entry in reversed(agent_prompt_history):
+            if entry['id'] == run_id:
+                return jsonify({
+                    'id': run_id,
+                    'prompt': entry['prompt'],
+                    'workspace': entry['workspace'],
+                    'mode': entry['mode'],
+                    'source': entry.get('source', 'text'),
+                    'started': entry['started'],
+                    'running': False,
+                    'output': '',
+                    'return_code': None,
+                    'finished': None,
+                })
+        return jsonify({'error': 'Agent run not found'}), 404
+
+    proc = run['process']
+    running = proc.poll() is None
+    return jsonify({
+        'id': run_id,
+        'prompt': run['prompt'],
+        'workspace': run['workspace'],
+        'mode': run['mode'],
+        'source': run.get('source', 'text'),
+        'started': run['started'],
+        'running': running,
+        'output': ''.join(run.get('output', [])),
+        'return_code': None if running else run.get('return_code', proc.returncode),
+        'finished': run.get('finished'),
+        'ide_injected': run.get('ide_injected', False),
+        'ide_error': run.get('ide_error'),
+    })
+
+
+@app.route('/api/cursor/agent/<run_id>/stop', methods=['POST'])
+@require_auth
+def api_cursor_agent_stop(run_id):
+    """Stop a running agent."""
+    run = agent_runs.get(run_id)
+    if not run:
+        return jsonify({'error': 'Agent run not found'}), 404
+
+    proc = run['process']
+    if proc.poll() is None:
+        proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        add_log('info', f'Stopped Cursor agent run {run_id}')
+
+    return jsonify({'success': True})
+
+
+@app.route('/api/cursor/agent/history')
+@require_auth
+def api_cursor_agent_history():
+    """List recent agent prompts."""
+    return jsonify({'history': list(reversed(agent_prompt_history[-50:]))})
+
+
+@app.route('/api/cursor/agent/active')
+@require_auth
+def api_cursor_agent_active():
+    """List active (and recent) agent runs."""
+    runs = []
+    for run_id, run in agent_runs.items():
+        proc = run['process']
+        running = proc.poll() is None
+        runs.append({
+            'id': run_id,
+            'prompt': run['prompt'],
+            'workspace': run['workspace'],
+            'mode': run['mode'],
+            'source': run.get('source', 'text'),
+            'started': run['started'],
+            'running': running,
+            'output_lines': len(run.get('output', [])),
+            'return_code': None if running else run.get('return_code', proc.returncode),
+        })
+    runs.sort(key=lambda r: r['started'], reverse=True)
+    return jsonify({'runs': runs})
+
+
+@app.route('/api/settings', methods=['GET', 'POST'])
+@require_auth
+def api_settings():
+    """Get or update runtime settings (app URL, etc.)."""
+    if request.method == 'GET':
+        return jsonify({
+            'project_path': CONFIG['project_path'],
+            'app_url': CONFIG.get('app_url', ''),
+            'cursor_bin': find_cursor_bin() or '',
+        })
+
+    data = request.get_json() or {}
+    if 'app_url' in data:
+        CONFIG['app_url'] = (data.get('app_url') or '').strip()
+    if 'project_path' in data and data['project_path']:
+        path = os.path.expanduser(data['project_path'])
+        if os.path.isdir(path):
+            CONFIG['project_path'] = path
+        else:
+            return jsonify({'error': f'Path not found: {path}'}), 400
+
+    save_run_conf()
+    return jsonify({
+        'success': True,
+        'project_path': CONFIG['project_path'],
+        'app_url': CONFIG.get('app_url', ''),
+        'cursor_bin': find_cursor_bin() or '',
+    })
+
+
+def agent_dir():
+    """Directory containing server.py / update_and_start.sh."""
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def save_run_conf():
+    """Persist current runtime settings for update_and_start.sh."""
+    conf_path = os.path.join(agent_dir(), '.run.conf')
+    # Quote values so special characters in passwords are safe when sourced
+    def q(value):
+        return "'" + str(value).replace("'", "'\"'\"'") + "'"
+
+    content = (
+        f"PROJECT_PATH={q(CONFIG['project_path'])}\n"
+        f"PASSWORD={q(CONFIG['password'])}\n"
+        f"PORT={q(CONFIG['port'])}\n"
+        f"APP_URL={q(CONFIG.get('app_url', ''))}\n"
+        f"HOST={q(CONFIG['host'])}\n"
+        f"CURSOR_API_KEY={q(CONFIG.get('cursor_api_key', ''))}\n"
+    )
+    with open(conf_path, 'w') as f:
+        f.write(content)
+
+
+@app.route('/api/self/update-and-restart', methods=['POST'])
+@require_auth
+def api_self_update_and_restart():
+    """Install dependencies and restart this remote agent via update_and_start.sh."""
+    script = os.path.join(agent_dir(), 'update_and_start.sh')
+    if not os.path.isfile(script):
+        return jsonify({'error': 'update_and_start.sh not found'}), 404
+
+    save_run_conf()
+
+    env = get_subprocess_env()
+    env['DELAY_RESTART'] = '1'
+
+    try:
+        # Detach so the script can kill this process after the response is sent
+        subprocess.Popen(
+            ['/bin/bash', script],
+            cwd=agent_dir(),
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception as e:
+        add_log('error', f'Failed to launch update_and_start.sh: {e}')
+        return jsonify({'error': str(e)}), 500
+
+    add_log('info', 'Update & restart triggered')
+    return jsonify({
+        'success': True,
+        'message': 'Updating dependencies and restarting. Reconnect in a few seconds.',
+    })
 
 
 def main():
@@ -642,6 +1050,8 @@ def main():
                        help='Password for authentication')
     parser.add_argument('--project', default=CONFIG['project_path'],
                        help='Default project path')
+    parser.add_argument('--app-url', default=CONFIG.get('app_url', ''),
+                       help='URL of the app to open in a mobile browser tab')
     parser.add_argument('--cursor-api-key', default=CONFIG['cursor_api_key'],
                        help='Cursor API key for CLI authentication (can also set CURSOR_API_KEY env var)')
     args = parser.parse_args()
@@ -650,10 +1060,16 @@ def main():
     CONFIG['host'] = args.host
     CONFIG['password'] = args.password
     CONFIG['project_path'] = os.path.expanduser(args.project)
+    CONFIG['app_url'] = args.app_url or CONFIG.get('app_url', '')
     CONFIG['cursor_api_key'] = args.cursor_api_key
-    
-    cursor_api_status = "Configured" if CONFIG['cursor_api_key'] else "Not set (run 'agent login' on Mac or set CURSOR_API_KEY)"
-    
+    save_run_conf()
+
+    cursor_api_status = (
+        "Configured"
+        if CONFIG['cursor_api_key']
+        else "Not set (run 'agent login' on Mac or set CURSOR_API_KEY)"
+    )
+
     print(f"""
 ╔═══════════════════════════════════════════════════════════════════╗
 ║           Cursor Remote Agent - Mobile Development Control         ║
