@@ -5,6 +5,8 @@ Control your Cursor IDE and Spring Boot development from your iPhone. A web-base
 ## Features
 
 - **Mobile-Optimized UI** - Beautiful, responsive interface designed for iPhone
+- **Cursor Agent Integration** - Send prompts to Cursor agent via text or voice
+- **Voice Input** - Speak your prompts using the microphone (Safari on iOS, Firefox on Android)
 - **Terminal Access** - Execute shell commands remotely
 - **File Browser** - Browse, view, and edit files on your Mac
 - **Spring Boot Integration** - Start, stop, and monitor your Spring Boot application
@@ -213,7 +215,40 @@ launchctl load ~/Library/LaunchAgents/com.cursor.remote-agent.plist
 
 For secure connections, you can use a reverse proxy like nginx or run with SSL directly.
 
+## Voice Input
+
+The app supports voice input for sending prompts to the Cursor agent. Tap the microphone button to speak your request.
+
+### Browser Compatibility for Voice Input
+
+| Browser | Platform | Voice Support | Notes |
+|---------|----------|---------------|-------|
+| **Safari** | iOS | Yes | Recommended for iOS. Works over HTTP. |
+| **Chrome** | iOS | No | iOS Chrome uses WebKit which doesn't support Speech API. Use Safari instead. |
+| **Firefox** | Android | Yes | Recommended for Android. Works over HTTP. |
+| **Chrome** | Android | Requires HTTPS | See workaround below. |
+
+### Enabling Voice Input in Chrome on Android
+
+Chrome requires a secure context (HTTPS) for the Speech Recognition API. Since this server typically runs over HTTP on your local network, you need to configure Chrome to treat your server's URL as secure:
+
+1. Open Chrome on your Android device
+2. Navigate to: `chrome://flags/#unsafely-treat-insecure-origin-as-secure`
+3. In the text field, add your server URL (e.g., `http://192.168.1.100:8765`)
+4. Set the flag to **Enabled**
+5. Tap **Relaunch** to restart Chrome
+6. Voice input should now work
+
+**Alternative:** Use Firefox on Android, which supports voice input over HTTP without any special configuration.
+
 ## Troubleshooting
+
+### Voice input not working
+
+1. **On iOS:** Use Safari, not Chrome. Chrome on iOS doesn't support the Web Speech API.
+2. **On Android Chrome:** Either add your server URL to Chrome's secure origins flag (see above), or use Firefox instead.
+3. **Microphone permission:** Make sure you've granted microphone permission to the browser. Check your browser settings.
+4. **Network issues:** Speech recognition requires an internet connection as it uses cloud-based recognition services.
 
 ### Can't connect from iPhone
 
