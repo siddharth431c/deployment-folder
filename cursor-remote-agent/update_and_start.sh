@@ -22,6 +22,7 @@ PASSWORD="${2:-${PASSWORD:-cursor123}}"
 PORT="${3:-${PORT:-8765}}"
 APP_URL="${4:-${APP_URL:-}}"
 HOST="${HOST:-0.0.0.0}"
+CURSOR_API_KEY="${CURSOR_API_KEY:-}"
 
 # Give the HTTP response a moment to finish when triggered from the app
 if [ "${DELAY_RESTART:-0}" = "1" ]; then
@@ -59,11 +60,16 @@ PASSWORD=$(printf '%q' "$PASSWORD")
 PORT=$(printf '%q' "$PORT")
 APP_URL=$(printf '%q' "$APP_URL")
 HOST=$(printf '%q' "$HOST")
+CURSOR_API_KEY=$(printf '%q' "$CURSOR_API_KEY")
 EOF
 
 ARGS=(python3 server.py --project "$PROJECT_PATH" --password "$PASSWORD" --port "$PORT" --host "$HOST")
 if [ -n "$APP_URL" ]; then
   ARGS+=(--app-url "$APP_URL")
+fi
+if [ -n "$CURSOR_API_KEY" ]; then
+  ARGS+=(--cursor-api-key "$CURSOR_API_KEY")
+  export CURSOR_API_KEY
 fi
 
 echo "→ Starting server..."

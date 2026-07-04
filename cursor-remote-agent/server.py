@@ -35,12 +35,21 @@ CONFIG = {
     'password': os.environ.get('AGENT_PASSWORD', 'cursor123'),
     'port': int(os.environ.get('AGENT_PORT', 8765)),
     'host': os.environ.get('AGENT_HOST', '0.0.0.0'),
+    'cursor_api_key': os.environ.get('CURSOR_API_KEY', ''),
     'session_timeout': 3600,  # 1 hour
     'max_output_lines': 500,
     'allowed_commands': None,  # None means all commands allowed
     'app_url': os.environ.get('APP_URL', ''),
     'cursor_bin': os.environ.get('CURSOR_BIN', ''),
 }
+
+
+def get_subprocess_env():
+    """Get environment variables for subprocess execution, including Cursor API key"""
+    env = os.environ.copy()
+    if CONFIG['cursor_api_key']:
+        env['CURSOR_API_KEY'] = CONFIG['cursor_api_key']
+    return env
 
 # Global state for running processes
 running_processes = {}
@@ -105,12 +114,14 @@ def open_project_in_cursor(path):
                 [cursor_bin, '--reuse-window', path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                env=get_subprocess_env(),
             )
         else:
             subprocess.Popen(
                 ['open', '-a', 'Cursor', path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                env=get_subprocess_env(),
             )
         return True
     except Exception as e:
@@ -149,7 +160,13 @@ def inject_prompt_into_cursor_ide(prompt):
     end tell
     '''
     try:
-        subprocess.run(['osascript', '-e', script], check=True, capture_output=True, text=True)
+        subprocess.run(
+            ['osascript', '-e', script],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=get_subprocess_env(),
+        )
         return True, None
     except subprocess.CalledProcessError as e:
         return False, (e.stderr or str(e)).strip()
@@ -253,7 +270,8 @@ def api_execute():
             cwd=cwd,
             capture_output=True,
             text=True,
-            timeout=timeout
+            timeout=timeout,
+            env=get_subprocess_env()
         )
         
         output = result.stdout + result.stderr
@@ -299,7 +317,8 @@ def api_execute_stream():
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1
+            bufsize=1,
+            env=get_subprocess_env()
         )
         
         proc_id = str(id(process))
@@ -339,7 +358,8 @@ def api_process_start():
         cwd=cwd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True
+        text=True,
+        env=get_subprocess_env()
     )
     
     proc_id = str(id(process))
@@ -506,7 +526,8 @@ def api_spring_boot_status():
             "ps aux | grep -E '[j]ava.*spring|[m]vn.*spring|[g]radle.*boot' | head -5",
             shell=True,
             capture_output=True,
-            text=True
+            text=True,
+            env=get_subprocess_env()
         )
         
         processes = []
@@ -526,7 +547,8 @@ def api_spring_boot_status():
             "lsof -i :8080 -i :8081 -i :9000 2>/dev/null | grep LISTEN | head -5",
             shell=True,
             capture_output=True,
-            text=True
+            text=True,
+            env=get_subprocess_env()
         )
         
         ports = []
@@ -582,7 +604,8 @@ def api_spring_boot_start():
         cwd=cwd,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True
+        text=True,
+        env=get_subprocess_env()
     )
     
     proc_id = str(id(process))
@@ -622,7 +645,8 @@ def api_spring_boot_stop():
         subprocess.run(
             "pkill -f 'java.*spring' || true",
             shell=True,
-            capture_output=True
+            capture_output=True,
+            env=get_subprocess_env()
         )
         add_log('info', 'Stopped Spring Boot application')
         return jsonify({'success': True})
@@ -642,7 +666,8 @@ def api_git_status():
             shell=True,
             cwd=cwd,
             capture_output=True,
-            text=True
+            text=True,
+            env=get_subprocess_env()
         )
         
         branch = subprocess.run(
@@ -650,7 +675,8 @@ def api_git_status():
             shell=True,
             cwd=cwd,
             capture_output=True,
-            text=True
+            text=True,
+            env=get_subprocess_env()
         )
         
         return jsonify({
@@ -717,7 +743,12 @@ def api_cursor_command():
             key code 36
         end tell
         '''
-        subprocess.run(['osascript', '-e', script], check=True, capture_output=True)
+        subprocess.run(
+            ['osascript', '-e', script],
+            check=True,
+            capture_output=True,
+            env=get_subprocess_env(),
+        )
         add_log('info', f'Sent Cursor command: {command}')
         return jsonify({'success': True})
     except Exception as e:
@@ -767,6 +798,7 @@ def api_cursor_agent():
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            env=get_subprocess_env(),
         )
     except Exception as e:
         add_log('error', f'Failed to start Cursor agent: {e}')
@@ -966,6 +998,7 @@ def save_run_conf():
         f"PORT={q(CONFIG['port'])}\n"
         f"APP_URL={q(CONFIG.get('app_url', ''))}\n"
         f"HOST={q(CONFIG['host'])}\n"
+        f"CURSOR_API_KEY={q(CONFIG.get('cursor_api_key', ''))}\n"
     )
     with open(conf_path, 'w') as f:
         f.write(content)
@@ -981,7 +1014,7 @@ def api_self_update_and_restart():
 
     save_run_conf()
 
-    env = os.environ.copy()
+    env = get_subprocess_env()
     env['DELAY_RESTART'] = '1'
 
     try:
@@ -1019,6 +1052,8 @@ def main():
                        help='Default project path')
     parser.add_argument('--app-url', default=CONFIG.get('app_url', ''),
                        help='URL of the app to open in a mobile browser tab')
+    parser.add_argument('--cursor-api-key', default=CONFIG['cursor_api_key'],
+                       help='Cursor API key for CLI authentication (can also set CURSOR_API_KEY env var)')
     args = parser.parse_args()
     
     CONFIG['port'] = args.port
@@ -1026,7 +1061,14 @@ def main():
     CONFIG['password'] = args.password
     CONFIG['project_path'] = os.path.expanduser(args.project)
     CONFIG['app_url'] = args.app_url or CONFIG.get('app_url', '')
+    CONFIG['cursor_api_key'] = args.cursor_api_key
     save_run_conf()
+
+    cursor_api_status = (
+        "Configured"
+        if CONFIG['cursor_api_key']
+        else "Not set (run 'agent login' on Mac or set CURSOR_API_KEY)"
+    )
 
     print(f"""
 ╔═══════════════════════════════════════════════════════════════════╗
@@ -1036,6 +1078,7 @@ def main():
 ║  Server running at: http://{args.host}:{args.port}                          ║
 ║  Password: {args.password}                                                 ║
 ║  Project: {args.project[:50]}                                       ║
+║  Cursor API Key: {cursor_api_status[:45]}                            ║
 ║                                                                     ║
 ║  To connect from your iPhone:                                       ║
 ║  1. Make sure your Mac and iPhone are on the same network           ║
